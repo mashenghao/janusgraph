@@ -20,7 +20,6 @@ import org.janusgraph.graphdb.database.management.ManagementSystem;
 import org.janusgraph.graphdb.management.utils.ConfigurationManagementGraphNotEnabledException;
 import org.janusgraph.graphdb.management.utils.ConfigurationManagementGraphAlreadyInstantiatedException;
 import static org.janusgraph.core.schema.SchemaAction.ENABLE_INDEX;
-import static org.janusgraph.core.schema.SchemaAction.REINDEX;
 import static org.janusgraph.core.schema.SchemaStatus.INSTALLED;
 import static org.janusgraph.core.schema.SchemaStatus.REGISTERED;
 import org.janusgraph.core.PropertyKey;
@@ -38,8 +37,6 @@ import com.google.common.base.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -62,7 +59,6 @@ public class ConfigurationManagementGraph {
     private static final String GRAPH_NAME_INDEX = "Graph_Name_Index";
     private static final String PROPERTY_TEMPLATE = "Template_Configuration";
     private static final String TEMPLATE_INDEX = "Template_Index";
-    private static final String CREATED_USING_TEMPLATE_INDEX = "Created_Using_Template_Index";
 
     private final StandardJanusGraph graph;
 
@@ -80,7 +76,7 @@ public class ConfigurationManagementGraph {
         this.graph = graph;
         createIndexIfDoesNotExist(GRAPH_NAME_INDEX, PROPERTY_GRAPH_NAME, String.class, true);
         createIndexIfDoesNotExist(TEMPLATE_INDEX, PROPERTY_TEMPLATE, Boolean.class, false);
-        createIndexIfDoesNotExist(CREATED_USING_TEMPLATE_INDEX, PROPERTY_CREATED_USING_TEMPLATE, Boolean.class, false);
+        createIndexIfDoesNotExist(PROPERTY_CREATED_USING_TEMPLATE, PROPERTY_CREATED_USING_TEMPLATE, Boolean.class, false);
     }
 
     private synchronized void initialize() {
@@ -89,11 +85,6 @@ public class ConfigurationManagementGraph {
             throw new ConfigurationManagementGraphAlreadyInstantiatedException(errMsg);
         }
         instance = this;
-    }
-
-    // To be used for testing purposes
-    protected static void shutdownConfigurationManagementGraph() {
-        instance = null;
     }
 
     /**
@@ -219,7 +210,7 @@ public class ConfigurationManagementGraph {
      * @return Map&lt;String, Object&gt;
      */
     public Map<String, Object> getConfiguration(final String configName) {
-        final List<Map<Object, Object>> graphConfiguration = graph.traversal().V().has(PROPERTY_GRAPH_NAME, configName).valueMap().toList();
+        final List<Map<String, Object>> graphConfiguration = graph.traversal().V().has(PROPERTY_GRAPH_NAME, configName).valueMap().toList();
         if (graphConfiguration.isEmpty()) return null;
         else if (graphConfiguration.size() > 1) { // this case shouldn't happen because our index has a unique constraint
             log.warn("Your configuration management graph is an a bad state. Please " +
@@ -236,7 +227,7 @@ public class ConfigurationManagementGraph {
      * @return List&lt;Map&lt;String, Object&gt;&gt;
      */
     public List<Map<String, Object>> getConfigurations() {
-        final List<Map<Object, Object>> graphConfigurations = graph.traversal().V().has(PROPERTY_TEMPLATE, false).valueMap().toList();
+        final List<Map<String, Object>> graphConfigurations = graph.newTransaction().traversal().V().has(PROPERTY_TEMPLATE, false).valueMap().toList();
         return graphConfigurations.stream().map(this::deserializeVertexProperties).collect(Collectors.toList());
     }
 
@@ -246,7 +237,7 @@ public class ConfigurationManagementGraph {
      * @return Map&lt;String, Object&gt;
      */
     public Map<String, Object> getTemplateConfiguration() {
-        final List<Map<Object, Object>> templateConfigurations = graph.traversal().V().has(PROPERTY_TEMPLATE, true).valueMap().toList();
+        final List<Map<String, Object>> templateConfigurations = graph.traversal().V().has(PROPERTY_TEMPLATE, true).valueMap().toList();
         if (templateConfigurations.size() == 0) return null;
 
         if (templateConfigurations.size() > 1) {
@@ -271,15 +262,8 @@ public class ConfigurationManagementGraph {
         graph.tx().rollback();
         JanusGraphManagement management = graph.openManagement();
         if (null == management.getGraphIndex(indexName)) {
-            final PropertyKey key;
-            boolean propertyKeyAlreadyExisted = false;
-            if (null == management.getPropertyKey(propertyKeyName)) {
-                key = management.makePropertyKey(propertyKeyName).dataType(dataType).make();
-            }
-            else {
-                key = management.getPropertyKey(propertyKeyName);
-                propertyKeyAlreadyExisted = true;
-            }
+            final PropertyKey key = management.makePropertyKey(propertyKeyName).dataType(dataType).make();
+
             final JanusGraphIndex index;
             if (unique) index = management.buildIndex(indexName, Vertex.class).addKey(key).unique().buildCompositeIndex();
             else index = management.buildIndex(indexName, Vertex.class).addKey(key).buildCompositeIndex();
@@ -288,17 +272,9 @@ public class ConfigurationManagementGraph {
                     management.commit();
                     ManagementSystem.awaitGraphIndexStatus(graph, indexName).call();
                     management = graph.openManagement();
-                    if (propertyKeyAlreadyExisted) {
-                        management.updateIndex(management.getGraphIndex(indexName), REINDEX).get();
-                    } else {
-                        management.updateIndex(management.getGraphIndex(indexName), ENABLE_INDEX).get();
-                    }
+                    management.updateIndex(index, ENABLE_INDEX).get();
                 } else if (index.getIndexStatus(key) == REGISTERED) {
-                    if (propertyKeyAlreadyExisted) {
-                        management.updateIndex(management.getGraphIndex(indexName), REINDEX).get();
-                    } else {
-                        management.updateIndex(management.getGraphIndex(indexName), ENABLE_INDEX).get();
-                    }
+                    management.updateIndex(index, ENABLE_INDEX).get();
                 }
             } catch (InterruptedException | ExecutionException e) {
                 log.warn("Failed to create index {} for ConfigurationManagementGraph with exception: {}",
@@ -310,9 +286,6 @@ public class ConfigurationManagementGraph {
             }
             management.commit();
             graph.tx().commit();
-        } else {
-            management.rollback();
-            graph.tx().rollback();
         }
     }
 
@@ -324,8 +297,7 @@ public class ConfigurationManagementGraph {
         }
     }
 
-    private Map<String, Object> deserializeVertexProperties(Map<Object, Object> map) {
-        HashMap<String, Object> deserializedProperties = new HashMap<>();
+    private Map<String, Object> deserializeVertexProperties(Map<String, Object> map) {
         map.forEach((key, value) -> {
             if (value instanceof List) {
                 if (((List) value).size() > 1) {
@@ -333,9 +305,10 @@ public class ConfigurationManagementGraph {
                              "ensure each vertex property is not supplied a Collection as a value. The behavior " +
                              "of the class' APIs are henceforth unpredictable until this is fixed.");
                 }
-                deserializedProperties.put((String) key, ((List) value).get(0));
+                map.put(key, ((List) value).get(0));
             }
         });
-        return deserializedProperties;
+        return map;
     }
 }
+
