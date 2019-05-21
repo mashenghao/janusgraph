@@ -358,6 +358,11 @@ public abstract class OLAPTest extends JanusGraphBaseTest {
         }
 
         @Override
+        public <P extends WriteBackService> Class<P> getServiceClass() throws ClassNotFoundException {
+            return null;
+        }
+
+        @Override
         public GraphComputer.ResultGraph getPreferredResultGraph() {
             return GraphComputer.ResultGraph.NEW;
         }
@@ -439,6 +444,11 @@ public abstract class OLAPTest extends JanusGraphBaseTest {
         public Set<MessageScope> getMessageScopes(Memory memory) {
             if (memory.getIteration()<length) return ImmutableSet.of(DEG_MSG);
             else return Collections.emptySet();
+        }
+
+        @Override
+        public <P extends WriteBackService> Class<P> getServiceClass() throws ClassNotFoundException {
+            return null;
         }
 
         // TODO i'm not sure these preferences are correct
