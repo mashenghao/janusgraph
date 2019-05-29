@@ -508,6 +508,7 @@ public class Backend implements LockerProvider, AutoCloseable {
         if (!hasAttemptedClose) {
             hasAttemptedClose = true;
             managementLogManager.close();
+            log.info("Closing "+ this.getStoreManager().getName());
             txLogManager.close();
             userLogManager.close();
 
