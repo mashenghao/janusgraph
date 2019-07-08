@@ -205,6 +205,12 @@ public class ManagementSystem implements JanusGraphManagement {
         return openInstances;
     }
 
+    public boolean checkOpenInstancesInternal() {
+        Set<String> openInstances = Sets.newHashSet(modifyConfig.getContainedNamespaces(REGISTRATION_NS));
+        String uid = graph.getConfiguration().getUniqueGraphId();
+        return openInstances.contains(uid);
+    }
+
     @Override
     public Set<String> getOpenInstances() {
         Set<String> openInstances = getOpenInstancesInternal();

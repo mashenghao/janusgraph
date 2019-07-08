@@ -18,6 +18,7 @@ import org.apache.commons.configuration.MapConfiguration;
 import org.apache.tinkerpop.gremlin.hadoop.structure.HadoopGraph;
 import org.apache.tinkerpop.gremlin.process.computer.Computer;
 import org.apache.tinkerpop.gremlin.spark.process.computer.SparkGraphComputer;
+import org.janusgraph.core.schema.JanusGraphManagement;
 import org.janusgraph.graphdb.database.StandardJanusGraph;
 import org.janusgraph.core.JanusGraphFactory;
 import org.janusgraph.core.ConfiguredGraphFactory;
@@ -27,6 +28,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.TraversalSource;
 import org.apache.tinkerpop.gremlin.server.GraphManager;
 import org.apache.tinkerpop.gremlin.server.Settings;
 import org.apache.tinkerpop.gremlin.groovy.engine.GremlinExecutor;
+import org.janusgraph.graphdb.database.management.ManagementSystem;
 import org.janusgraph.graphdb.management.utils.JanusGraphManagerException;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -133,6 +135,10 @@ public class JanusGraphManager implements GraphManager {
                         removeGraph(it);
                         log.warn("Graph {} been closed and is removed from Jmg and will be recreated",it);
                     }
+                    if (old != null && old instanceof StandardJanusGraph &&!checkThisInstance((StandardJanusGraph)old)) {
+                        removeGraph(it).close();
+                        log.warn("Graph {} been force closed and is removed from Jmg and will be recreated",it);
+                    }
                     final Graph graph = ConfiguredGraphFactory.open(it);
 //                    updateTraversalSource(it, graph, this.gremlinExecutor, this.graphManager);
                     final Graph graph2 = ConfiguredGraphFactory.openHadoopGraph(it);
@@ -151,6 +157,11 @@ public class JanusGraphManager implements GraphManager {
                 }
             });
         }
+    }
+
+    private static boolean checkThisInstance(StandardJanusGraph old){
+        ManagementSystem mgmt = (ManagementSystem)old.openManagement();
+        return mgmt.checkOpenInstancesInternal();
     }
 
     // To be used for testing purposes

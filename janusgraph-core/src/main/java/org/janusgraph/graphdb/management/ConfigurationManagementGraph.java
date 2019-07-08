@@ -62,6 +62,7 @@ public class ConfigurationManagementGraph {
     private static final String HADOOP_GRAPH = "Hadoop_Graph_Configuration";
     private static final String HADOOP_PROPERTY_TEMPLATE = "Hadoop_Template_Configuration";
     private static final String TEMPLATE_INDEX = "Template_Index";
+    private static final String HADOOP_TEMPLATE_INDEX = "Hadoop_Template_Index";
 
     private final StandardJanusGraph graph;
 
@@ -79,6 +80,7 @@ public class ConfigurationManagementGraph {
         this.graph = graph;
         createIndexIfDoesNotExist(GRAPH_NAME_INDEX, PROPERTY_GRAPH_NAME, String.class, false);
         createIndexIfDoesNotExist(TEMPLATE_INDEX, PROPERTY_TEMPLATE, Boolean.class, false);
+//        createIndexIfDoesNotExist(HADOOP_TEMPLATE_INDEX, HADOOP_PROPERTY_TEMPLATE, Boolean.class, false);
         createIndexIfDoesNotExist(PROPERTY_CREATED_USING_TEMPLATE, PROPERTY_CREATED_USING_TEMPLATE, Boolean.class, false);
     }
 
@@ -351,10 +353,10 @@ public class ConfigurationManagementGraph {
 
     private void removeVertex(String property, Object value) {
         final GraphTraversal<Vertex, Vertex> traversal = graph.traversal().V().has(property, value);
-        if (traversal.hasNext()) {
+        while (traversal.hasNext()) {
             traversal.next().remove();
-            graph.tx().commit();
         }
+        graph.tx().commit();
     }
 
     private void createIndexIfDoesNotExist(String indexName, String propertyKeyName, Class dataType,boolean unique) {
