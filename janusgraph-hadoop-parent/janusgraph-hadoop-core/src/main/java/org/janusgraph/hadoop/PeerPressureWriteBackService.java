@@ -18,6 +18,7 @@ import org.janusgraph.core.schema.JanusGraphManagement;
 import org.janusgraph.diskstorage.configuration.backend.CommonsConfiguration;
 import org.janusgraph.diskstorage.hbase.HBaseStoreManager;
 import org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration;
+import org.janusgraph.graphdb.configuration.builder.GraphDatabaseConfigurationBuilder;
 import org.janusgraph.graphdb.database.StandardJanusGraph;
 import org.janusgraph.hadoop.config.JanusGraphHadoopConfiguration;
 import scala.Tuple2;
@@ -63,7 +64,7 @@ public class PeerPressureWriteBackService implements VertexProgram.WriteBackServ
         final String name = propertyName;
         if(name!=null){
             final CommonsConfiguration config = new CommonsConfiguration(new MapConfiguration(configMap));
-            StandardJanusGraph graph = new StandardJanusGraph(new GraphDatabaseConfiguration(config));
+            StandardJanusGraph graph = new StandardJanusGraph(new GraphDatabaseConfigurationBuilder().build(config));
             JanusGraphManagement management = graph.openManagement();
             RelationType key = management.getRelationType(name);
             if (key == null) {
@@ -77,7 +78,7 @@ public class PeerPressureWriteBackService implements VertexProgram.WriteBackServ
         JavaPairRDD<Object, VertexWritable> writableRDD = input.repartition(partition);
         writableRDD = writableRDD.mapPartitionsToPair(partitionIterator -> {
             final CommonsConfiguration config = new CommonsConfiguration(new MapConfiguration(configMap));
-            StandardJanusGraph graph = new StandardJanusGraph(new GraphDatabaseConfiguration(config));
+            StandardJanusGraph graph = new StandardJanusGraph(new GraphDatabaseConfigurationBuilder().build(config));
             JanusGraphTransaction tx = graph.buildTransaction().enableBatchLoading().start();
             while(partitionIterator.hasNext()){
                 StarGraph.StarVertex vertex = partitionIterator.next()._2().get();
