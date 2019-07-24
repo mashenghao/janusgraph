@@ -55,13 +55,18 @@ public class PeerPressureWriteBackService implements VertexProgram.WriteBackServ
     public void execute(final JavaPairRDD<Object, VertexWritable> input, VertexProgram<Object> vertexProgram) {
         final String[] vertexComputeKeysArray = VertexProgramHelper.vertexComputeKeysAsArray(vertexProgram.getVertexComputeKeys());
         String propertyName = null;
+        String prefixName = null;
         for (String key : vertexComputeKeysArray) {
             if (!VOTE_STRENGTH.equals(key)) {
-                propertyName = key;
-                break;
+                if(key.startsWith("Prefix")){
+                    prefixName = key.replaceFirst("Prefix","");
+                }else{
+                    propertyName = key;
+                }
             }
         }
         final String name = propertyName;
+        final String prefix = prefixName;
         if(name!=null){
             final CommonsConfiguration config = new CommonsConfiguration(new MapConfiguration(configMap));
             StandardJanusGraph graph = new StandardJanusGraph(new GraphDatabaseConfigurationBuilder().build(config));
@@ -83,7 +88,7 @@ public class PeerPressureWriteBackService implements VertexProgram.WriteBackServ
             while(partitionIterator.hasNext()){
                 StarGraph.StarVertex vertex = partitionIterator.next()._2().get();
                 Vertex v = tx.getVertex(Long.valueOf(vertex.id().toString()));
-                v.property(VertexProperty.Cardinality.single, name, vertex.property(name).value());
+                v.property(VertexProperty.Cardinality.single, name, prefix+vertex.property(name).value());
             }
             Iterator s = IteratorUtils.map(partitionIterator, tuple -> new Tuple2<>(tuple._2().get().get().id(),null));
             tx.commit();
