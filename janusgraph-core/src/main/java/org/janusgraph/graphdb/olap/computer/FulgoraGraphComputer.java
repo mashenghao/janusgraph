@@ -107,6 +107,12 @@ public class FulgoraGraphComputer implements JanusGraphComputer {
     }
 
     @Override
+    public GraphComputer properties(final String... otherProperties) {
+        this.graphFilter.setPropertyFilter(otherProperties);
+        return this;
+    }
+
+    @Override
     public GraphComputer edges(final Traversal<Vertex, Edge> edgeFilter) {
         this.graphFilter.setEdgeFilter(edgeFilter);
         return this;
@@ -225,6 +231,7 @@ public class FulgoraGraphComputer implements JanusGraphComputer {
     }
 
     private void executeIterationOfJob(VertexProgramScanJob.Executor job, int iteration) {
+        log.info("===========> Start to execute iteration {} <=========",iteration);
         initializeVertexMemoryForIteration();
         StandardScanner.Builder scanBuilder = createScanBuilderForJob(job, iteration);
         PartitionedVertexProgramExecutor programExecutor = new PartitionedVertexProgramExecutor(graph, memory, vertexMemory, vertexProgram);

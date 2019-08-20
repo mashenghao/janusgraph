@@ -142,7 +142,7 @@ public class HBaseKeyColumnValueStore implements KeyColumnValueStore {
                     new ColumnPaginationFilter(query.getLimit(), colStartBytes));
         }
 
-        logger.debug("Generated HBase Filter {}", filter);
+//        logger.debug("Generated HBase Filter {}", filter);
 
         return filter;
     }
