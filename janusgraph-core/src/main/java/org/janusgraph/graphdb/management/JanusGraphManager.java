@@ -265,7 +265,9 @@ public class JanusGraphManager implements GraphManager {
     public Graph reloadHadoopGraph(String gName){
         Graph graph;
         synchronized (instantiateHadoopGraphLock) {
-            graph = HadoopGraph.open(new MapConfiguration(ConfiguredGraphFactory.getHadoopConfiguration(gName)));
+            MapConfiguration mapConfiguration = new MapConfiguration(ConfiguredGraphFactory.getHadoopConfiguration(gName));
+            mapConfiguration.setDelimiterParsingDisabled(true);
+            graph = HadoopGraph.open(mapConfiguration);
             graphs.put(hadoopGraphPrefix+gName, graph);
         }
         if (null != gremlinExecutor) {
@@ -288,6 +290,7 @@ public class JanusGraphManager implements GraphManager {
                 graph= graphs.get(hadoopGraphPrefix+gName);
                 if (graph == null) {
                     graph = thunk.apply(gName);
+                    log.info("HadoopGraph {} instance is opened",gName);
                     graphs.put(hadoopGraphPrefix+gName, graph);
                 }
             }
@@ -315,6 +318,7 @@ public class JanusGraphManager implements GraphManager {
                 graph = graphs.get(gName);
                 if (graph == null || ((StandardJanusGraph) graph).isClosed()) {
                     graph = thunk.apply(gName);
+                    log.info("Graph {} instance is opened",gName);
                     graphs.put(gName, graph);
                 }
             }

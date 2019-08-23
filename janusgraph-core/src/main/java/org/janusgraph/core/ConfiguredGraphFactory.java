@@ -94,11 +94,14 @@ public class ConfiguredGraphFactory {
         hadoopTemplateConfigMap.put(ConfigurationManagementGraph.PROPERTY_CREATED_USING_TEMPLATE, true);
         final JanusGraphManager jgm = JanusGraphManagerUtility.getInstance();
         Preconditions.checkNotNull(jgm, JANUS_GRAPH_MANAGER_EXPECTED_STATE_MSG);
-        final CommonsConfiguration config = new CommonsConfiguration(new MapConfiguration(templateConfigMap));
+        final MapConfiguration mapConfig = new MapConfiguration(templateConfigMap);
+        mapConfig.setDelimiterParsingDisabled(true);
+        final CommonsConfiguration config = new CommonsConfiguration(mapConfig);
         final MapConfiguration hadoopConfig = new MapConfiguration(hadoopTemplateConfigMap);
+        hadoopConfig.setDelimiterParsingDisabled(true);
         final JanusGraph g = (JanusGraph) jgm.openGraph(graphName, (String gName) -> new StandardJanusGraph(new GraphDatabaseConfigurationBuilder().build(config)));
         Graph g2 = jgm.openHadoopGraph(graphName,(String gName) -> HadoopGraph.open(hadoopConfig));
-        configManagementGraph.createConfiguration(new MapConfiguration(templateConfigMap));
+        configManagementGraph.createConfiguration(mapConfig);
         configManagementGraph.createHadoopConfiguration(hadoopConfig);
         return g;
     }
@@ -122,7 +125,9 @@ public class ConfiguredGraphFactory {
                                 "Please create configuration for this graph using the ConfigurationManagementGraph#createConfiguration API.");
         final JanusGraphManager jgm = JanusGraphManagerUtility.getInstance();
         Preconditions.checkNotNull(jgm, JANUS_GRAPH_MANAGER_EXPECTED_STATE_MSG);
-        final CommonsConfiguration config = new CommonsConfiguration(new MapConfiguration(graphConfigMap));
+        final MapConfiguration mapConfig = new MapConfiguration(graphConfigMap);
+        mapConfig.setDelimiterParsingDisabled(true);
+        final CommonsConfiguration config = new CommonsConfiguration(mapConfig);
         return (JanusGraph) jgm.openGraph(graphName, (String gName) -> new StandardJanusGraph(new GraphDatabaseConfigurationBuilder().build(config)));
     }
 
@@ -133,7 +138,9 @@ public class ConfiguredGraphFactory {
             "Please create configuration for this hadoop graph using the ConfigurationManagementGraph#createHadoopConfiguration API.");
         final JanusGraphManager jgm = JanusGraphManagerUtility.getInstance();
         Preconditions.checkState(jgm != null, JANUS_GRAPH_MANAGER_EXPECTED_STATE_MSG);
-        return (HadoopGraph) jgm.openHadoopGraph(graphName,(String gName) -> HadoopGraph.open(new MapConfiguration(hadoopGraphConfigMap)));
+        final MapConfiguration hadoopConfig = new MapConfiguration(hadoopGraphConfigMap);
+        hadoopConfig.setDelimiterParsingDisabled(true);
+        return (HadoopGraph) jgm.openHadoopGraph(graphName,(String gName) -> HadoopGraph.open(hadoopConfig));
     }
 
     /**

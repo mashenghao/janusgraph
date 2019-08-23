@@ -83,7 +83,7 @@ public class ConfigurationManagementGraph {
         this.graph = graph;
         createIndexIfDoesNotExist(GRAPH_NAME_INDEX, PROPERTY_GRAPH_NAME, String.class, false);
         createIndexIfDoesNotExist(TEMPLATE_INDEX, PROPERTY_TEMPLATE, Boolean.class, false);
-//        createIndexIfDoesNotExist(HADOOP_TEMPLATE_INDEX, HADOOP_PROPERTY_TEMPLATE, Boolean.class, false);
+        createIndexIfDoesNotExist(HADOOP_TEMPLATE_INDEX, HADOOP_PROPERTY_TEMPLATE, Boolean.class, false);
         createIndexIfDoesNotExist(PROPERTY_CREATED_USING_TEMPLATE, PROPERTY_CREATED_USING_TEMPLATE, Boolean.class, false);
     }
 
