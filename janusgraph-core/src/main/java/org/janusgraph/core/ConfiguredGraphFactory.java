@@ -94,6 +94,9 @@ public class ConfiguredGraphFactory {
         hadoopTemplateConfigMap.put(ConfigurationManagementGraph.PROPERTY_CREATED_USING_TEMPLATE, true);
         final JanusGraphManager jgm = JanusGraphManagerUtility.getInstance();
         Preconditions.checkNotNull(jgm, JANUS_GRAPH_MANAGER_EXPECTED_STATE_MSG);
+        if(templateConfigMap.containsKey("index.search.index-name")){
+            templateConfigMap.put("index.search.index-name",graphName);
+        }
         final MapConfiguration mapConfig = new MapConfiguration(templateConfigMap);
         mapConfig.setDelimiterParsingDisabled(true);
         final CommonsConfiguration config = new CommonsConfiguration(mapConfig);
@@ -186,7 +189,7 @@ public class ConfiguredGraphFactory {
     public static void drop(String graphName) throws BackendException, ConfigurationManagementGraphNotEnabledException, Exception {
         final StandardJanusGraph graph = (StandardJanusGraph) ConfiguredGraphFactory.close(graphName);
         removeConfiguration(graphName);
-        JanusGraphFactory.drop(graph);
+        if(graph!=null) JanusGraphFactory.drop(graph);
     }
 
     private static ConfigurationManagementGraph getConfigGraphManagementInstance() {
