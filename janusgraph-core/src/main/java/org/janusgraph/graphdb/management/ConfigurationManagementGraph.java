@@ -66,6 +66,7 @@ public class ConfigurationManagementGraph {
     private static final String HADOOP_PROPERTY_TEMPLATE = "Hadoop_Template_Configuration";
     private static final String TEMPLATE_INDEX = "Template_Index";
     private static final String HADOOP_TEMPLATE_INDEX = "Hadoop_Template_Index";
+    private static final String HADOOP_GRAPH_INDEX = "Hadoop_Graph_Index";
 
     private final StandardJanusGraph graph;
 
@@ -84,6 +85,7 @@ public class ConfigurationManagementGraph {
         createIndexIfDoesNotExist(GRAPH_NAME_INDEX, PROPERTY_GRAPH_NAME, String.class, false);
         createIndexIfDoesNotExist(TEMPLATE_INDEX, PROPERTY_TEMPLATE, Boolean.class, false);
         createIndexIfDoesNotExist(HADOOP_TEMPLATE_INDEX, HADOOP_PROPERTY_TEMPLATE, Boolean.class, false);
+        createIndexIfDoesNotExist(HADOOP_GRAPH_INDEX, HADOOP_GRAPH, Boolean.class, false);
         createIndexIfDoesNotExist(PROPERTY_CREATED_USING_TEMPLATE, PROPERTY_CREATED_USING_TEMPLATE, Boolean.class, false);
     }
 
