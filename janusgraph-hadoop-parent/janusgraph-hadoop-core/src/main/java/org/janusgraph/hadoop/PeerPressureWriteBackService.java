@@ -21,6 +21,7 @@ import org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration;
 import org.janusgraph.graphdb.configuration.builder.GraphDatabaseConfigurationBuilder;
 import org.janusgraph.graphdb.database.StandardJanusGraph;
 import org.janusgraph.hadoop.config.JanusGraphHadoopConfiguration;
+import org.janusgraph.hadoop.util.WriteBackServiceUtil;
 import scala.Tuple2;
 
 import java.io.Serializable;
@@ -31,24 +32,16 @@ import java.util.function.Predicate;
 
 
 /**
- * Created by Think on 2019/4/18.
+ * @author zhf
  */
 public class PeerPressureWriteBackService implements VertexProgram.WriteBackService<JavaPairRDD<Object, VertexWritable>, Object>, Serializable {
     private Map<String, Object> configMap;
     private static final String VOTE_STRENGTH = "gremlin.peerPressureVertexProgram.voteStrength";
-    private int commitSize = 10000;
 
     @Override
     public void setConfigration(Configuration configration) {
         configMap = new HashMap<>();
-//        configMap.put(GraphDatabaseConfiguration.STORAGE_BATCH.toStringWithoutRoot(),false);
-//        configMap.put(GraphDatabaseConfiguration.SCHEMA_CONSTRAINTS.toStringWithoutRoot(),false);
-//        configMap.put(GraphDatabaseConfiguration.AUTO_TYPE.toStringWithoutRoot(),"default");
-        configMap.put(GraphDatabaseConfiguration.GREMLIN_GRAPH.toStringWithoutRoot(), "org.janusgraph.core.JanusGraphFactory");
-        configMap.put(GraphDatabaseConfiguration.STORAGE_BACKEND.toStringWithoutRoot(), configration.getProperty(JanusGraphHadoopConfiguration.GRAPH_CONFIG_KEYS + "." + GraphDatabaseConfiguration.STORAGE_BACKEND.toStringWithoutRoot()));
-        configMap.put(GraphDatabaseConfiguration.STORAGE_HOSTS.toStringWithoutRoot(), configration.getProperty(JanusGraphHadoopConfiguration.GRAPH_CONFIG_KEYS + "." + GraphDatabaseConfiguration.STORAGE_HOSTS.toStringWithoutRoot()));
-        configMap.put(GraphDatabaseConfiguration.STORAGE_PORT.toStringWithoutRoot(), configration.getProperty(JanusGraphHadoopConfiguration.GRAPH_CONFIG_KEYS + "." + GraphDatabaseConfiguration.STORAGE_PORT.toStringWithoutRoot()));
-        configMap.put(HBaseStoreManager.HBASE_TABLE.toStringWithoutRoot(), configration.getProperty(JanusGraphHadoopConfiguration.GRAPH_CONFIG_KEYS + "." + HBaseStoreManager.HBASE_TABLE.toStringWithoutRoot()));
+        WriteBackServiceUtil.setConfigration(configMap,configration);
     }
 
     @Override
@@ -79,6 +72,7 @@ public class PeerPressureWriteBackService implements VertexProgram.WriteBackServ
             graph.close();
         }
         int count = (int) input.count();
+        int commitSize = 10000;
         int partition = count / commitSize + 1;
         JavaPairRDD<Object, VertexWritable> writableRDD = input.repartition(partition);
         writableRDD = writableRDD.mapPartitionsToPair(partitionIterator -> {
