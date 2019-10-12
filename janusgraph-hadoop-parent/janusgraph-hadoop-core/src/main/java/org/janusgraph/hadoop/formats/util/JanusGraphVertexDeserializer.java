@@ -182,10 +182,17 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         /*Since we are filtering out system relation types, we might end up with vertices that have no incident relations.
          This is especially true for schema vertices. Those are filtered out.     */
         if (!tv.edges(Direction.BOTH).hasNext() && !tv.properties().hasNext()) {
+            if(schemaVertices(tv)){
+                return null;
+            }
             log.trace("Vertex {} has no relations", vertexId);
-            return null;
+            return tv;
         }
         return tv;
+    }
+
+    public boolean schemaVertices(Vertex tv){
+        return "vertex".equals(tv.label());
     }
 
     public TinkerVertex getOrCreateVertex(final long vertexId, final String label, final TinkerGraph tg) {
