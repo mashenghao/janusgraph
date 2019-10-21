@@ -149,7 +149,7 @@ public class JanusGraphManager implements GraphManager {
                     this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + it + "_traversal_withSparkComputer", graph2.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
                     graphs.put(it,graph);
                     graphs.put(hadoopGraphPrefix+it,graph2);
-                    log.info("Reloading graph {} and bind to gremlinExecutor",it);
+                    log.debug("Reloading graph {} and bind to gremlinExecutor",it);
                 } catch (Exception e) {
                     // cannot open graph, do nothing
                     log.error(String.format("Failed to open graph %s with the following error:\n %s.\n" +
