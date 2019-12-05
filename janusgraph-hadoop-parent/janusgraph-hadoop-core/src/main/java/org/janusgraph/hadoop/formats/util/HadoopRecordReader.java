@@ -68,7 +68,7 @@ public class HadoopRecordReader extends RecordReader<NullWritable, VertexWritabl
         while (reader.nextKeyValue()) {
             // TODO janusgraph05 integration -- the duplicate() call may be unnecessary
             final TinkerVertex maybeNullTinkerVertex =
-                    deserializer.readHadoopVertex(reader.getCurrentKey(), reader.getCurrentValue());
+                    deserializer.readHadoopVertex(reader.getCurrentKey(), reader.getCurrentValue(), graphFilter);
             if (null != maybeNullTinkerVertex) {
                 vertex = new VertexWritable(maybeNullTinkerVertex);
                 if (graphFilter == null) {

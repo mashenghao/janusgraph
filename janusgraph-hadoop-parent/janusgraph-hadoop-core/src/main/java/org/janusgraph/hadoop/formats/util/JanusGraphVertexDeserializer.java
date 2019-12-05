@@ -16,6 +16,7 @@ package org.janusgraph.hadoop.formats.util;
 
 import com.carrotsearch.hppc.cursors.LongObjectCursor;
 import com.google.common.base.Preconditions;
+import org.apache.tinkerpop.gremlin.process.computer.GraphFilter;
 import org.janusgraph.core.*;
 import org.janusgraph.diskstorage.Entry;
 import org.janusgraph.diskstorage.StaticBuffer;
@@ -72,7 +73,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
 
     // Read a single row from the edgestore and create a TinkerVertex corresponding to the row
     // The neighboring vertices are represented by DetachedVertex instances
-    public TinkerVertex readHadoopVertex(final StaticBuffer key, Iterable<Entry> entries) {
+    public TinkerVertex readHadoopVertex(final StaticBuffer key, Iterable<Entry> entries, GraphFilter filter) {
 
         // Convert key to a vertex ID
         final long vertexId = idManager.getKeyID(key);
@@ -99,6 +100,9 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                 // Found vertex Label
                 long vertexLabelId = relation.getOtherVertexId();
                 VertexLabel vl = typeManager.getExistingVertexLabel(vertexLabelId);
+                if(filter!=null&&filter.isHasVertexLabelFilter()&&!filter.getVertexLabelFilter().test(vl.name())){
+                    return null;
+                }
                 // Create TinkerVertex with this label
                 tv = getOrCreateVertex(vertexId, vl.name(), tg);
             }
@@ -114,6 +118,9 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         // Iterate over and decode edgestore columns (relations) on this vertex
         for (final Entry data : entries) {
             try {
+                if(filter.allowNoEdges()&&filter.allowNoProperties()){
+                    break;
+                }
                 RelationReader relationReader = setup.getRelationReader(vertexId);
                 final RelationCache relation = relationReader.parseRelation(data, false, typeManager);
 
@@ -123,6 +130,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
 
                 // Decode and create the relation (edge or property)
                 if (type.isPropertyKey()) {
+                    if(filter.allowNoProperties()) continue;
                     // Decode property
                     Object value = relation.getValue();
                     Preconditions.checkNotNull(value);
@@ -130,7 +138,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                     tv.property(card, type.name(), value, T.id, relation.relationId);
                 } else {
                     assert type.isEdgeLabel();
-
+                    if(filter.allowNoEdges()) continue;
                     // Partitioned vertex handling
                     if (idManager.isPartitionedVertex(relation.getOtherVertexId())) {
                         Preconditions.checkState(setup.getFilterPartitionedVertices(),
