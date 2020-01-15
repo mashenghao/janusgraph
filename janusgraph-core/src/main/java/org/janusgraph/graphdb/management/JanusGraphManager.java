@@ -142,11 +142,15 @@ public class JanusGraphManager implements GraphManager {
                     final Graph graph = ConfiguredGraphFactory.open(it);
 //                    updateTraversalSource(it, graph, this.gremlinExecutor, this.graphManager);
                     final Graph graph2 = ConfiguredGraphFactory.openHadoopGraph(it);
-                    this.gremlinExecutor.getScriptEngineManager().put(it, graph);
-                    this.gremlinExecutor.getScriptEngineManager().put(it + "_traversal", graph.traversal());
-                    this.gremlinExecutor.getScriptEngineManager().put(it + "_traversal_withComputer", graph.traversal().withComputer());
-                    this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + it, graph2);
-                    this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + it + "_traversal_withSparkComputer", graph2.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
+                    String tableName = it;
+                    if(it.contains(":")){
+                        tableName = it.split(":")[1];
+                    }
+                    this.gremlinExecutor.getScriptEngineManager().put(tableName, graph);
+                    this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal", graph.traversal());
+                    this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal_withComputer", graph.traversal().withComputer());
+                    this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + tableName, graph2);
+                    this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + tableName + "_traversal_withSparkComputer", graph2.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
                     graphs.put(it,graph);
                     graphs.put(hadoopGraphPrefix+it,graph2);
                     log.debug("Reloading graph {} and bind to gremlinExecutor",it);
@@ -271,18 +275,27 @@ public class JanusGraphManager implements GraphManager {
             graphs.put(hadoopGraphPrefix+gName, graph);
         }
         if (null != gremlinExecutor) {
-            this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+gName, graph);
-            this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+gName + "_traversal_withSparkComputer", graph.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
+            String tableName = gName;
+            if(gName.contains(":")){
+                tableName = gName.split(":")[1];
+            }
+            this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+tableName, graph);
+            this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+tableName + "_traversal_withSparkComputer", graph.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
         }
         return graph;
     }
 
     public Graph openHadoopGraph(String gName,Function<String, Graph> thunk) {
         Graph graph= graphs.get(hadoopGraphPrefix+gName);
+        String tableName = gName;
+        if(gName.contains(":")){
+            tableName = gName.split(":")[1];
+        }
         if (graph != null) {
             if (null != gremlinExecutor) {
-                this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+gName, graph);
-                this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+gName + "_traversal_withSparkComputer", graph.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
+
+                this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+tableName, graph);
+                this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+tableName + "_traversal_withSparkComputer", graph.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
             }
             return graph;
         } else {
@@ -295,8 +308,8 @@ public class JanusGraphManager implements GraphManager {
                 }
             }
             if (null != gremlinExecutor) {
-                this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+gName, graph);
-                this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+gName + "_traversal_withSparkComputer", graph.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
+                this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+tableName, graph);
+                this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix+tableName + "_traversal_withSparkComputer", graph.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
             }
             return graph;
         }
@@ -305,12 +318,16 @@ public class JanusGraphManager implements GraphManager {
     @Override
     public Graph openGraph(String gName, Function<String, Graph> thunk) {
         Graph graph = graphs.get(gName);
+        String tableName = gName;
+        if(gName.contains(":")){
+            tableName = gName.split(":")[1];
+        }
         if (graph != null && !((StandardJanusGraph) graph).isClosed()) {
             updateTraversalSource(gName, graph);
             if (null != gremlinExecutor) {
-                this.gremlinExecutor.getScriptEngineManager().put(gName, graph);
-                this.gremlinExecutor.getScriptEngineManager().put(gName + "_traversal", graph.traversal());
-                this.gremlinExecutor.getScriptEngineManager().put(gName + "_traversal_withComputer", graph.traversal().withComputer());
+                this.gremlinExecutor.getScriptEngineManager().put(tableName, graph);
+                this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal", graph.traversal());
+                this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal_withComputer", graph.traversal().withComputer());
             }
             return graph;
         } else {
@@ -324,9 +341,9 @@ public class JanusGraphManager implements GraphManager {
             }
             updateTraversalSource(gName, graph);
             if (null != gremlinExecutor) {
-                this.gremlinExecutor.getScriptEngineManager().put(gName, graph);
-                this.gremlinExecutor.getScriptEngineManager().put(gName + "_traversal", graph.traversal());
-                this.gremlinExecutor.getScriptEngineManager().put(gName + "_traversal_withComputer", graph.traversal().withComputer());
+                this.gremlinExecutor.getScriptEngineManager().put(tableName, graph);
+                this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal", graph.traversal());
+                this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal_withComputer", graph.traversal().withComputer());
             }
             return graph;
         }
@@ -355,8 +372,12 @@ public class JanusGraphManager implements GraphManager {
 
     private void updateTraversalSource(String graphName, Graph graph, GremlinExecutor gremlinExecutor,
                                        JanusGraphManager graphManager){
-        gremlinExecutor.getScriptEngineManager().put(graphName, graph);
-        String traversalName = graphName + "_traversal";
+        String tableName = graphName;
+        if(graphName.contains(":")){
+            tableName = graphName.split(":")[1];
+        }
+        gremlinExecutor.getScriptEngineManager().put(tableName, graph);
+        String traversalName = tableName + "_traversal";
         TraversalSource traversalSource = graph.traversal();
         gremlinExecutor.getScriptEngineManager().put(traversalName, traversalSource);
         graphManager.putTraversalSource(traversalName, traversalSource);
