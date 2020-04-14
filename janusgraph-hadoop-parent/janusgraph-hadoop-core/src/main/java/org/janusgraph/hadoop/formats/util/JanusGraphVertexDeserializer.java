@@ -48,7 +48,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
     private final IDManager idManager;
 
     private static final Logger log =
-            LoggerFactory.getLogger(JanusGraphVertexDeserializer.class);
+        LoggerFactory.getLogger(JanusGraphVertexDeserializer.class);
 
     public JanusGraphVertexDeserializer(final JanusGraphHadoopSetup setup) {
         this.setup = setup;
@@ -63,7 +63,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         while (adjacentVertices.hasNext()) {
             Vertex adjacentVertex = adjacentVertices.next();
 
-            if(adjacentVertex.equals(vertex)){
+            if (adjacentVertex.equals(vertex)) {
                 return true;
             }
         }
@@ -82,7 +82,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         // Partitioned vertex handling
         if (idManager.isPartitionedVertex(vertexId)) {
             Preconditions.checkState(setup.getFilterPartitionedVertices(),
-                    "Read partitioned vertex (ID=%s), but partitioned vertex filtering is disabled.", vertexId);
+                "Read partitioned vertex (ID=%s), but partitioned vertex filtering is disabled.", vertexId);
             log.debug("Skipping partitioned vertex with ID {}", vertexId);
             return null;
         }
@@ -100,7 +100,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                 // Found vertex Label
                 long vertexLabelId = relation.getOtherVertexId();
                 VertexLabel vl = typeManager.getExistingVertexLabel(vertexLabelId);
-                if(filter!=null&&filter.isHasVertexLabelFilter()&&!filter.getVertexLabelFilter().test(vl.name())){
+                if (filter != null && filter.isHasVertexLabelFilter() && !filter.getVertexLabelFilter().test(vl.name())) {
                     return null;
                 }
                 // Create TinkerVertex with this label
@@ -118,7 +118,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         // Iterate over and decode edgestore columns (relations) on this vertex
         for (final Entry data : entries) {
             try {
-                if(filter!=null&&filter.allowNoEdges()&&filter.allowNoProperties()){
+                if (filter != null && filter.allowNoEdges() && filter.allowNoProperties()) {
                     break;
                 }
                 RelationReader relationReader = setup.getRelationReader(vertexId);
@@ -126,11 +126,12 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
 
                 if (systemTypes.isSystemType(relation.typeId)) continue; //Ignore system types
                 final RelationType type = typeManager.getExistingRelationType(relation.typeId);
-                if (((InternalRelationType)type).isInvisibleType()) continue; //Ignore hidden types
+                if (((InternalRelationType) type).isInvisibleType()) continue; //Ignore hidden types
 
                 // Decode and create the relation (edge or property)
                 if (type.isPropertyKey()) {
-                    if(filter!=null&&filter.allowNoProperties()) continue;
+                    if (filter != null && filter.allowNoProperties() || filter.checkPropertyLegality(type.name()).negative())
+                        continue;
                     // Decode property
                     Object value = relation.getValue();
                     Preconditions.checkNotNull(value);
@@ -138,15 +139,15 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                     tv.property(card, type.name(), value, T.id, relation.relationId);
                 } else {
                     assert type.isEdgeLabel();
-                    if(filter!=null&&filter.allowNoEdges()) continue;
+                    if (filter != null && filter.allowNoEdges()) continue;
                     // Partitioned vertex handling
                     if (idManager.isPartitionedVertex(relation.getOtherVertexId())) {
                         Preconditions.checkState(setup.getFilterPartitionedVertices(),
-                                "Read edge incident on a partitioned vertex, but partitioned vertex filtering is disabled.  " +
+                            "Read edge incident on a partitioned vertex, but partitioned vertex filtering is disabled.  " +
                                 "Relation ID: %s.  This vertex ID: %s.  Other vertex ID: %s.  Edge label: %s.",
-                                relation.relationId, vertexId, relation.getOtherVertexId(), type.name());
+                            relation.relationId, vertexId, relation.getOtherVertexId(), type.name());
                         log.debug("Skipping edge with ID {} incident on partitioned vertex with ID {} (and nonpartitioned vertex with ID {})",
-                                relation.relationId, relation.getOtherVertexId(), vertexId);
+                            relation.relationId, relation.getOtherVertexId(), vertexId);
                         continue;
                     }
 
@@ -162,9 +163,11 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                     }
 
                     if (relation.direction.equals(Direction.IN)) {
-                        te = (TinkerEdge)adjacentVertex.addEdge(type.name(), tv, T.id, relation.relationId);
+                        if (filter.checkEdgeLegality(Direction.IN, type.name()).negative()) continue;
+                        te = (TinkerEdge) adjacentVertex.addEdge(type.name(), tv, T.id, relation.relationId);
                     } else if (relation.direction.equals(Direction.OUT)) {
-                        te = (TinkerEdge)tv.addEdge(type.name(), adjacentVertex, T.id, relation.relationId);
+                        if (filter.checkEdgeLegality(Direction.OUT, type.name()).negative()) continue;
+                        te = (TinkerEdge) tv.addEdge(type.name(), adjacentVertex, T.id, relation.relationId);
                     } else {
                         throw new RuntimeException("Direction.BOTH is not supported");
                     }
@@ -174,6 +177,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                         for (final LongObjectCursor<Object> next : relation) {
                             assert next.value != null;
                             RelationType rt = typeManager.getExistingRelationType(next.key);
+                            if (filter != null && filter.checkPropertyLegality(rt.name()).negative()) continue;
                             if (rt.isPropertyKey()) {
                                 te.property(rt.name(), next.value);
                             } else {
@@ -190,7 +194,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         /*Since we are filtering out system relation types, we might end up with vertices that have no incident relations.
          This is especially true for schema vertices. Those are filtered out.     */
         if (!tv.edges(Direction.BOTH).hasNext() && !tv.properties().hasNext()) {
-            if(schemaVertices(tv)){
+            if (schemaVertices(tv)) {
                 return null;
             }
             log.trace("Vertex {} has no relations", vertexId);
@@ -199,7 +203,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         return tv;
     }
 
-    public boolean schemaVertices(Vertex tv){
+    public boolean schemaVertices(Vertex tv) {
         return "vertex".equals(tv.label());
     }
 
@@ -207,7 +211,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         TinkerVertex v;
 
         try {
-            v = (TinkerVertex)tg.vertices(vertexId).next();
+            v = (TinkerVertex) tg.vertices(vertexId).next();
         } catch (NoSuchElementException e) {
             if (null != label) {
                 v = (TinkerVertex) tg.addVertex(T.label, label, T.id, vertexId);
