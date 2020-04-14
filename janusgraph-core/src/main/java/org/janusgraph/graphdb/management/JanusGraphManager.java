@@ -15,6 +15,7 @@
 package org.janusgraph.graphdb.management;
 
 import org.apache.commons.configuration.MapConfiguration;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.tinkerpop.gremlin.hadoop.structure.HadoopGraph;
 import org.apache.tinkerpop.gremlin.process.computer.Computer;
 import org.apache.tinkerpop.gremlin.spark.process.computer.SparkGraphComputer;
@@ -153,13 +154,13 @@ public class JanusGraphManager implements GraphManager {
                     this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + tableName + "_traversal_withSparkComputer", graph2.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
                     graphs.put(it,graph);
                     graphs.put(hadoopGraphPrefix+it,graph2);
-                    log.debug("Reloading graph {} and bind to gremlinExecutor",it);
                 } catch (Exception e) {
                     // cannot open graph, do nothing
                     log.error(String.format("Failed to open graph %s with the following error:\n %s.\n" +
                     "Thus, it and its traversal will not be bound on this server.", it, e.toString()));
                 }
             });
+            log.debug("Reloading graphs [{}] and bind to gremlinExecutor", StringUtils.join(ConfiguredGraphFactory.getGraphNames().toArray(),","));
         }
     }
 
