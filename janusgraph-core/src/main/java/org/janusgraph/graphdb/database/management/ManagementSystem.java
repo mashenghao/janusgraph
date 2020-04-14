@@ -719,7 +719,7 @@ public class ManagementSystem implements JanusGraphManagement {
     private JanusGraphIndex createCompositeIndex(String indexName, ElementCategory elementCategory, boolean unique, JanusGraphSchemaType constraint, PropertyKey... keys) {
         checkIndexName(indexName);
         Preconditions.checkArgument(keys != null && keys.length > 0, "Need to provide keys to index [%s]", indexName);
-        Preconditions.checkArgument(!unique || elementCategory == ElementCategory.VERTEX, "Unique indexes can only be created on vertices [%s]", indexName);
+//        Preconditions.checkArgument(!unique || elementCategory == ElementCategory.VERTEX, "Unique indexes can only be created on vertices [%s]", indexName);
         boolean allSingleKeys = true;
         boolean oneNewKey = false;
         for (PropertyKey key : keys) {
