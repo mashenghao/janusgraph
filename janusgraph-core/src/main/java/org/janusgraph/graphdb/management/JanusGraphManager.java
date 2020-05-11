@@ -160,7 +160,7 @@ public class JanusGraphManager implements GraphManager {
                     "Thus, it and its traversal will not be bound on this server.", it, e.toString()));
                 }
             });
-            log.debug("Reloading graphs [{}] and bind to gremlinExecutor", StringUtils.join(ConfiguredGraphFactory.getGraphNames().toArray(),","));
+            log.debug("Reloading graphs [{}] and bind {} to gremlinExecutor", StringUtils.join(ConfiguredGraphFactory.getGraphNames().toArray(),","), StringUtils.join(this.gremlinExecutor.getScriptEngineManager().getBindings().keySet().toArray(),","));
         }
     }
 
