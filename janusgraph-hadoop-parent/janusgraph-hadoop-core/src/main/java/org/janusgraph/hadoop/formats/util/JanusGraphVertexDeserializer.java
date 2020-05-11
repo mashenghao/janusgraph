@@ -130,7 +130,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
 
                 // Decode and create the relation (edge or property)
                 if (type.isPropertyKey()) {
-                    if (filter != null && filter.allowNoProperties() || filter.checkPropertyLegality(type.name()).negative())
+                    if (filter != null && (filter.allowNoProperties() || filter.checkPropertyLegality(type.name()).negative()))
                         continue;
                     // Decode property
                     Object value = relation.getValue();
@@ -163,10 +163,10 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                     }
 
                     if (relation.direction.equals(Direction.IN)) {
-                        if (filter.checkEdgeLegality(Direction.IN, type.name()).negative()) continue;
+                        if (filter != null && filter.checkEdgeLegality(Direction.IN, type.name()).negative()) continue;
                         te = (TinkerEdge) adjacentVertex.addEdge(type.name(), tv, T.id, relation.relationId);
                     } else if (relation.direction.equals(Direction.OUT)) {
-                        if (filter.checkEdgeLegality(Direction.OUT, type.name()).negative()) continue;
+                        if (filter != null && filter.checkEdgeLegality(Direction.OUT, type.name()).negative()) continue;
                         te = (TinkerEdge) tv.addEdge(type.name(), adjacentVertex, T.id, relation.relationId);
                     } else {
                         throw new RuntimeException("Direction.BOTH is not supported");
