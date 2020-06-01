@@ -5,6 +5,7 @@ import org.apache.commons.configuration.MapConfiguration;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.tinkerpop.gremlin.hadoop.structure.io.VertexWritable;
 import org.apache.tinkerpop.gremlin.process.computer.VertexProgram;
+import org.apache.tinkerpop.gremlin.process.computer.clustering.peerpressure.PeerPressureVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.util.VertexProgramHelper;
 import org.apache.tinkerpop.gremlin.spark.process.computer.payload.ViewOutgoingPayload;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
@@ -36,7 +37,6 @@ import java.util.function.Predicate;
  */
 public class PeerPressureWriteBackService implements VertexProgram.WriteBackService<JavaPairRDD<Object, VertexWritable>, Object>, Serializable {
     private Map<String, Object> configMap;
-    private static final String VOTE_STRENGTH = "gremlin.peerPressureVertexProgram.voteStrength";
 
     @Override
     public void setConfigration(Configuration configration) {
@@ -50,7 +50,7 @@ public class PeerPressureWriteBackService implements VertexProgram.WriteBackServ
         String propertyName = null;
         String prefixName = null;
         for (String key : vertexComputeKeysArray) {
-            if (!VOTE_STRENGTH.equals(key)) {
+            if (!PeerPressureVertexProgram.VOTE_STRENGTH.equals(key)&&!PeerPressureVertexProgram.LOCAL_VOTE_STRENGTH.equals(key)) {
                 if(key.startsWith("Prefix")){
                     prefixName = key.replaceFirst("Prefix","");
                 }else{
