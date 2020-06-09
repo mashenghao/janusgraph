@@ -81,9 +81,9 @@ public enum TypeDefinitionCategory {
 
     static {
         ImmutableSet.Builder<TypeDefinitionCategory> builder = ImmutableSet.builder();
-        for (ModifierType type : ModifierType.values()) {
-            builder.add(type.getCategory());
-        }
+        //循环依赖导致类无法加载
+        builder.add(TypeDefinitionCategory.CONSISTENCY_LEVEL);
+        builder.add(TypeDefinitionCategory.TTL);
         TYPE_MODIFIER_DEFINITION_CATEGORIES = builder.build();
     }
 
