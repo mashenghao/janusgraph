@@ -13,7 +13,18 @@
     <properties>
         <top.level.basedir>${basedir}/../..</top.level.basedir>
     </properties>
-    
+    <distributionManagement>
+        <repository>
+            <id>ext-release-local</id>
+            <name>ext-release-local</name>
+            <url>http://maven:8081/artifactory/ext-release-local/</url>
+        </repository>
+        <snapshotRepository>
+            <id>ext-snapshot-local</id>
+            <name>ext-snapshot-local</name>
+            <url>http://maven:8081/artifactory/ext-snapshot-local/</url>
+        </snapshotRepository>
+    </distributionManagement>
     <dependencies>
         <dependency>
 	    <groupId>${project.groupId}</groupId>

@@ -182,9 +182,23 @@
                     <archive>
                         <manifestEntries>
                             <Gremlin-Plugin-Dependencies>org.janusgraph:janusgraph-cassandra:${project.version};org.janusgraph:janusgraph-hadoop:${project.version}</Gremlin-Plugin-Dependencies>
+                            <version>${project.version}</version>
+                            <hash>${buildNumber}</hash>
                         </manifestEntries>
                     </archive>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>buildnumber-maven-plugin</artifactId>
+                <version>1.4</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>create</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -227,9 +241,9 @@
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/MANIFEST.MF</exclude>
-                                    </excludes>
+                                    <!--<excludes>-->
+                                        <!--<exclude>META-INF/MANIFEST.MF</exclude>-->
+                                    <!--</excludes>-->
                                 </filter>
                             </filters>
                             <relocations>
