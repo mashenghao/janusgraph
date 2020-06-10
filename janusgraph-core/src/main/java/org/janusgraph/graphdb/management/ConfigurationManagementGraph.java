@@ -299,7 +299,7 @@ public class ConfigurationManagementGraph {
     public Map<String, Object> getConfiguration(final String configName) {
         JanusGraphTransaction tx = graph.newTransaction();
         final List<Map<Object, Object>> graphConfiguration = tx.traversal().V().has(HADOOP_GRAPH,false).has(PROPERTY_GRAPH_NAME, configName).valueMap().toList();
-        tx.commit();
+        tx.close();
         if (graphConfiguration.isEmpty()) return null;
         else if (graphConfiguration.size() > 1) { // this case shouldn't happen because our index has a unique constraint
             log.warn("Your configuration management graph is an a bad state. Please " +
@@ -312,7 +312,7 @@ public class ConfigurationManagementGraph {
     public Map<String, Object> getHadoopConfiguration(final String configName) {
         JanusGraphTransaction tx = graph.newTransaction();
         final List<Map<Object, Object>> graphConfiguration = tx.traversal().V().has(HADOOP_GRAPH,true).has(PROPERTY_GRAPH_NAME, configName).valueMap().toList();
-        tx.commit();
+        tx.close();
         if (graphConfiguration.isEmpty()) return null;
         else if (graphConfiguration.size() > 1) { // this case shouldn't happen because our index has a unique constraint
             log.warn("Your configuration management graph is an a bad state. Please " +
@@ -331,7 +331,7 @@ public class ConfigurationManagementGraph {
     public List<Map<String, Object>> getConfigurations() {
         JanusGraphTransaction tx = graph.newTransaction();
         final List<Map<Object, Object>> graphConfigurations = tx.traversal().V().has(HADOOP_GRAPH,false).has(PROPERTY_TEMPLATE, false).valueMap().toList();
-        tx.commit();
+        tx.close();
         return graphConfigurations.stream().map(this::deserializeVertexProperties).collect(Collectors.toList());
     }
 
@@ -343,7 +343,7 @@ public class ConfigurationManagementGraph {
     public Map<String, Object> getTemplateConfiguration() {
         JanusGraphTransaction tx = graph.newTransaction();
         final List<Map<Object, Object>> templateConfigurations = tx.traversal().V().has(PROPERTY_TEMPLATE, true).valueMap().toList();
-        tx.commit();
+        tx.close();
         if (templateConfigurations.size() == 0) return null;
 
         if (templateConfigurations.size() > 1) {
@@ -359,7 +359,7 @@ public class ConfigurationManagementGraph {
     public Map<String, Object> getHadoopTemplateConfiguration() {
         JanusGraphTransaction tx = graph.newTransaction();
         final List<Map<Object, Object>> sparkTemplateConfigurations = tx.traversal().V().has(HADOOP_PROPERTY_TEMPLATE, true).valueMap().toList();
-        tx.commit();
+        tx.close();
         if (sparkTemplateConfigurations.size() == 0) return null;
 
         if (sparkTemplateConfigurations.size() > 1) {
