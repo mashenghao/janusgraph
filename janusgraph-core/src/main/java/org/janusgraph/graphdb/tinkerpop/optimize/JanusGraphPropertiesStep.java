@@ -133,7 +133,9 @@ public class JanusGraphPropertiesStep<E> extends PropertiesStep<E> implements Ha
             }
             return convertIterator(multiQueryResults.get(traverser.get()));
         } else if (traverser.get() instanceof JanusGraphVertex || traverser.get() instanceof WrappedVertex) {
+            //创建query
             final JanusGraphVertexQuery query = makeQuery((JanusGraphTraversalUtil.getJanusGraphVertex(traverser)).query());
+            //query.properties() 调用execute执行
             return convertIterator(query.properties());
         } else {
             //It is some other element (edge or vertex property)
