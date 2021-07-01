@@ -111,6 +111,7 @@ public class JanusGraphManager implements GraphManager {
     }
 
     public void configureGremlinExecutor(GremlinExecutor gremlinExecutor) {
+        log.info("======  start  schedule dynamic GremlinExecutorGraphBinder  =====");
         this.gremlinExecutor = gremlinExecutor;
         final ScheduledExecutorService bindExecutor = Executors.newScheduledThreadPool(1);
         // Dynamically created graphs created with the ConfiguredGraphFactory are
@@ -129,44 +130,53 @@ public class JanusGraphManager implements GraphManager {
 
         @Override
         public void run() {
-            ConfiguredGraphFactory.getGraphNames().forEach(it -> {
-                try {
-                    Graph old = graphs.get(it);
-                    if (old != null && old instanceof StandardJanusGraph && ((StandardJanusGraph) old).isClosed()) {
-                        removeGraph(it);
-                        log.warn("Graph {} been closed and is removed from Jmg and will be recreated",it);
-                    }
-                    if (old != null && old instanceof StandardJanusGraph &&!checkThisInstance((StandardJanusGraph)old)) {
-                        removeGraph(it).close();
-                        log.warn("Graph {} been force closed and is removed from Jmg and will be recreated",it);
-                    }
-                    final Graph graph = ConfiguredGraphFactory.open(it);
+            try {
+                ConfiguredGraphFactory.getGraphNames().forEach(it -> {
+                    try {
+                        Graph old = graphs.get(it);
+                        if (old != null && old instanceof StandardJanusGraph && ((StandardJanusGraph) old).isClosed()) {
+                            removeGraph(it);
+                            log.warn("Graph {} been closed and is removed from Jmg and will be recreated",it);
+                        }
+                        if (old != null && old instanceof StandardJanusGraph &&!checkThisInstance((StandardJanusGraph)old)) {
+                            removeGraph(it).close();
+                            log.warn("Graph {} been force closed and is removed from Jmg and will be recreated",it);
+                        }
+                        final Graph graph = ConfiguredGraphFactory.open(it);
 //                    updateTraversalSource(it, graph, this.gremlinExecutor, this.graphManager);
-                    final Graph graph2 = ConfiguredGraphFactory.openHadoopGraph(it);
-                    String tableName = it;
-                    if(it.contains(":")){
-                        tableName = it.split(":")[1];
+                        final Graph graph2 = ConfiguredGraphFactory.openHadoopGraph(it);
+                        String tableName = it;
+                        if(it.contains(":")){
+                            tableName = it.split(":")[1];
+                        }
+                        this.gremlinExecutor.getScriptEngineManager().put(tableName, graph);
+                        this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal", graph.traversal());
+                        this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal_withComputer", graph.traversal().withComputer());
+                        this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + tableName, graph2);
+                        this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + tableName + "_traversal_withSparkComputer", graph2.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
+                        graphs.put(it,graph);
+                        graphs.put(hadoopGraphPrefix+it,graph2);
+                    } catch (Exception e) {
+                        // cannot open graph, do nothing
+                        log.error(String.format("Failed to open graph %s with the following error:\n %s.\n" +
+                            "Thus, it and its traversal will not be bound on this server.", it, e.toString()));
                     }
-                    this.gremlinExecutor.getScriptEngineManager().put(tableName, graph);
-                    this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal", graph.traversal());
-                    this.gremlinExecutor.getScriptEngineManager().put(tableName + "_traversal_withComputer", graph.traversal().withComputer());
-                    this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + tableName, graph2);
-                    this.gremlinExecutor.getScriptEngineManager().put(hadoopGraphPrefix + tableName + "_traversal_withSparkComputer", graph2.traversal().withComputer(Computer.compute(SparkGraphComputer.class).workers(100)));
-                    graphs.put(it,graph);
-                    graphs.put(hadoopGraphPrefix+it,graph2);
-                } catch (Exception e) {
-                    // cannot open graph, do nothing
-                    log.error(String.format("Failed to open graph %s with the following error:\n %s.\n" +
-                    "Thus, it and its traversal will not be bound on this server.", it, e.toString()));
-                }
-            });
+                });
+            }catch (Exception e){
+
+                log.error(String.format("/////////////////////////////////////\n 定时任务获取配置子图配置列表失败:\n {} //////////////////////////\n",e.toString()));
+                log.error("定时任务获取配置子图配置列表失败:",e);
+
+            }
             log.debug("Reloading graphs [{}] and bind {} to gremlinExecutor", StringUtils.join(ConfiguredGraphFactory.getGraphNames().toArray(),","), StringUtils.join(this.gremlinExecutor.getScriptEngineManager().getBindings().keySet().toArray(),","));
         }
     }
 
     private static boolean checkThisInstance(StandardJanusGraph old){
         ManagementSystem mgmt = (ManagementSystem)old.openManagement();
-        return mgmt.checkOpenInstancesInternal();
+        boolean b = mgmt.checkOpenInstancesInternal();
+        mgmt.commit();
+        return b;
     }
 
     // To be used for testing purposes
