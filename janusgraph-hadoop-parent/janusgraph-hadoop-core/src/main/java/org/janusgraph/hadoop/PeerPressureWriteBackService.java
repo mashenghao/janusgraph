@@ -14,6 +14,7 @@ import org.apache.tinkerpop.gremlin.structure.util.star.StarGraph;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.janusgraph.core.Cardinality;
 import org.janusgraph.core.JanusGraphTransaction;
+import org.janusgraph.core.PropertyKey;
 import org.janusgraph.core.RelationType;
 import org.janusgraph.core.schema.JanusGraphManagement;
 import org.janusgraph.diskstorage.configuration.backend.CommonsConfiguration;
@@ -26,6 +27,7 @@ import org.janusgraph.hadoop.util.WriteBackServiceUtil;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -66,7 +68,8 @@ public class PeerPressureWriteBackService implements VertexProgram.WriteBackServ
             JanusGraphManagement management = graph.openManagement();
             RelationType key = management.getRelationType(name);
             if (key == null) {
-                management.makePropertyKey(name).dataType(String.class).cardinality(Cardinality.SINGLE).make();
+                PropertyKey propertyKey = management.makePropertyKey(name).dataType(String.class).cardinality(Cardinality.SINGLE).make();
+                management.setTTL(propertyKey, Duration.ofDays(30));
             }
             management.commit();
             graph.close();
