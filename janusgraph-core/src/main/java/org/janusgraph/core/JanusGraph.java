@@ -22,7 +22,7 @@ import org.apache.tinkerpop.gremlin.util.Gremlin;
 /**
  * JanusGraph graph database implementation of the Blueprint's interface.
  * Use {@link JanusGraphFactory} to open and configure JanusGraph instances.
- *
+ *  janusgraph图实现。
  * @author Matthias Br&ouml;cheler (http://www.matthiasb.com)
  * @see JanusGraphFactory
  * @see JanusGraphTransaction
@@ -97,9 +97,10 @@ public interface JanusGraph extends Transaction {
     */
 
     /**
+     * 打开一个线程无关的事务
      * Opens a new thread-independent {@link JanusGraphTransaction}.
      * <p>
-     * The transaction is open when it is returned but MUST be explicitly closed by calling {@link org.janusgraph.core.JanusGraphTransaction#commit()}
+     * The transaction is open when it is returned but MUST be explicitly（关闭） closed by calling {@link org.janusgraph.core.JanusGraphTransaction#commit()}
      * or {@link org.janusgraph.core.JanusGraphTransaction#rollback()} when it is no longer needed.
      * <p>
      * Note, that this returns a thread independent transaction object. It is not necessary to call this method
@@ -111,6 +112,7 @@ public interface JanusGraph extends Transaction {
     JanusGraphTransaction newTransaction();
 
     /**
+     * 创建一个事务构建器，用于构建一个事务。
      * Returns a {@link TransactionBuilder} to construct a new thread-independent {@link JanusGraphTransaction}.
      *
      * @return a new TransactionBuilder
@@ -120,10 +122,12 @@ public interface JanusGraph extends Transaction {
     TransactionBuilder buildTransaction();
 
     /**
+     * 返回一个该图实例的schema管理类。 提供方法改变全局的配置，创建索引，等其他操作。
+     * 这个 JanusGraphManagement 是SchemaInspector的子类，定义了所有的约束创建的实现。
      * Returns the management system for this graph instance. The management system provides functionality
      * to change global configuration options, install indexes and inspect the graph schema.
      * <p>
-     * The management system operates in its own transactional context which must be explicitly closed.
+     * The management system operates in its own transactional context which must be explicitly（明确地） closed.
      *
      * @return
      */

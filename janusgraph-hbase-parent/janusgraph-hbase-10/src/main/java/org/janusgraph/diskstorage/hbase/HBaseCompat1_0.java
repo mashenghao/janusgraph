@@ -23,7 +23,7 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.io.compress.Compression;
-
+//兼容用的，也没啥用，就包装了一层，还是直接调用的hbase的 connection的api。
 public class HBaseCompat1_0 implements HBaseCompat {
 
     @Override

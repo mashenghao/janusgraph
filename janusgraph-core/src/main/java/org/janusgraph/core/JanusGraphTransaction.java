@@ -17,6 +17,7 @@ package org.janusgraph.core;
 import org.janusgraph.graphdb.relations.RelationIdentifier;
 
 /**
+ * JanusGraphTransaction定义了JanusGraph事务的上下文。 JanusGraph关于事务的操接口，都在JanusGraphTransaction中，用来减轻JanusGraph。
  * JanusGraphTransaction defines a transactional context for a {@link JanusGraph}. Since JanusGraph is a transactional graph
  * database, all interactions with the graph are mitigated by a JanusGraphTransaction.
  * <p>
@@ -74,8 +75,21 @@ public interface JanusGraphTransaction extends Transaction {
     JanusGraphVertex getVertex(long id);
 
 
+    /**
+     * 根据点id查询点， 这个只会检验点id是否存在，封装成一个InternalVertex。
+     * 不会查询点id的属性和边， 这个查询逻辑是懒加载的，用到的时候才会去根据点id 和 label 拉取数据。
+     * @param ids
+     * @return
+     */
     Iterable<JanusGraphVertex> getVertices(long... ids);
 
+    /**
+     * 根据边id获取边信息。 先去获取边的两个点，看看点是否被删了，被删了就是null。
+     * 然后根据获取到的点，再去调用vertex.query(),调用他的点中心查询去查出结果。
+     *
+     * @param ids
+     * @return
+     */
     Iterable<JanusGraphEdge> getEdges(RelationIdentifier... ids);
 
    /* ---------------------------------------------------------------

@@ -18,6 +18,9 @@ import org.janusgraph.core.PropertyKey;
 import org.apache.tinkerpop.gremlin.structure.Element;
 
 /**
+ * 索引定义label： 可以是点结构的也可以时边结构的。
+ *
+ *
  * A JanusGraphIndex is an index installed on the graph in order to be able to efficiently retrieve graph elements
  * by their properties.
  * A JanusGraphIndex may either be a composite or mixed index and is created via {@link JanusGraphManagement#buildIndex(String, Class)}.

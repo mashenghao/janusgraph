@@ -38,7 +38,7 @@ import java.util.Iterator;
 /**
  * Blueprints specific implementation of {@link JanusGraphTransaction}.
  * Provides utility methods that wrap JanusGraph calls with Blueprints terminology.
- *
+ * 对调用进行了一次包装。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public abstract class JanusGraphBlueprintsTransaction implements JanusGraphTransaction {
@@ -48,7 +48,7 @@ public abstract class JanusGraphBlueprintsTransaction implements JanusGraphTrans
      * @return
      */
     protected abstract JanusGraphBlueprintsGraph getGraph();
-
+    // 这些Graph的方法，实际还是调用的StandJanusGraph的方法。
     @Override
     public Features features() {
         return getGraph().features();
@@ -83,14 +83,17 @@ public abstract class JanusGraphBlueprintsTransaction implements JanusGraphTrans
         return graph.compute();
     }
 
+    /////////////Traction的自己实现了。///////////////////
+
     /**
+     * 使用给定的顶点id创建一个新的顶点。 点id存在或者非法，都会抛出异常。
      * Creates a new vertex in the graph with the given vertex id.
      * Note, that an exception is thrown if the vertex id is not a valid JanusGraph vertex id or if a vertex with the given
      * id already exists. Only accepts long ids - all others are ignored.
      * <p>
      * Custom id setting must be enabled via the configuration option {@link org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration#ALLOW_SETTING_VERTEX_ID}
      * and valid JanusGraph vertex ids must be provided. Use {@link org.janusgraph.graphdb.idmanagement.IDManager#toVertexId(long)}
-     * to construct a valid JanusGraph vertex id from a user id, where <code>idManager</code> can be obtained through
+     * to construct a valid(有效的) JanusGraph vertex id from a user id, where <code>idManager</code> can be obtained through
      * {@link org.janusgraph.graphdb.database.StandardJanusGraph#getIDManager()}.
      * <pre>
      * <code>long vertexId = ((StandardJanusGraph) graph).getIDManager().toVertexId(userVertexId);</code>
@@ -113,16 +116,23 @@ public abstract class JanusGraphBlueprintsTransaction implements JanusGraphTrans
             }
         }
         VertexLabel label = BaseVertexLabel.DEFAULT_VERTEXLABEL;
+        //根据名字获取或者创建label 名对应的VertexLabel。
         if (labelValue!=null) {
             label = (labelValue instanceof VertexLabel)?(VertexLabel)labelValue:getOrCreateVertexLabel((String) labelValue);
         }
 
         final Long id = ElementHelper.getIdValue(keyValues).map(Number.class::cast).map(Number::longValue).orElse(null);
+
+        // 该处生成节点对象，包含节点的唯一id生成逻辑
         final JanusGraphVertex vertex = addVertex(id, label);
+
+        //追加属性
         org.janusgraph.graphdb.util.ElementHelper.attachProperties(vertex, keyValues);
+
         return vertex;
     }
 
+    //最终所有的查询，回落到这里面去查询的。
     @Override
     public Iterator<Vertex> vertices(Object... vertexIds) {
         if (vertexIds==null || vertexIds.length==0) return (Iterator)getVertices().iterator();
@@ -171,7 +181,7 @@ public abstract class JanusGraphBlueprintsTransaction implements JanusGraphTrans
                 (byte)(ihc        & 0x000000FF)));
         return StringFactory.graphString(this, ihcString);
     }
-
+    //事务的实现，就是调用JanusGraphBlueprintsTransaction 他自己，因为他自己就代表一次操作的事务，是个事务实例。 这个实例会被StandJanusgGraph放到ThreadLocal中的。
     @Override
     public Transaction tx() {
         return new AbstractThreadedTransaction(getGraph()) {

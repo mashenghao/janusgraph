@@ -180,6 +180,9 @@ public class BackendOperation {
 
     }
 
+    /**
+     * 一个接口，用来获取事务对象用的。
+     */
     public interface TransactionalProvider {
 
         StoreTransaction openTx() throws BackendException;

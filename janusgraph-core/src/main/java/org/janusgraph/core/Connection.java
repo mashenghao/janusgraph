@@ -18,6 +18,7 @@ import org.janusgraph.graphdb.types.TypeDefinitionDescription;
 import org.janusgraph.graphdb.types.system.BaseKey;
 
 /**
+ * 这个connection包含了一个边的始点label和终点label。
  * Connection contains schema constraints from outgoing vertex to incoming vertex through an edge.
  *
  * @author Jan Jansen (jan.jansen@gdata.de)

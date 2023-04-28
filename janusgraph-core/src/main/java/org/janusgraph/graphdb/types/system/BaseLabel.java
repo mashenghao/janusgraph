@@ -26,9 +26,11 @@ import java.util.Collection;
 
 public class BaseLabel extends BaseRelationType implements EdgeLabel {
 
+    //内置边label，边的起始节点是边schema节点或者点schema节点， 结束点是属性Propertykey图库节点， 这又是个引用关系。
     public static final BaseLabel SchemaDefinitionEdge =
             new BaseLabel("SchemaRelated", 36, Direction.BOTH, Multiplicity.MULTI);
 
+    //内置边类型， 记录节点与其Vertexlabel图节点的引用关系
     public static final BaseLabel VertexLabelEdge =
             new BaseLabel("vertexlabel", 2, Direction.OUT, Multiplicity.MANY2ONE);
 

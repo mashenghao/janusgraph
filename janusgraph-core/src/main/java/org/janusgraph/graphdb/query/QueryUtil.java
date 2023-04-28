@@ -72,7 +72,7 @@ public class QueryUtil {
         }
         return (InternalRelationType) t;
     }
-
+    //获取点，根据label id, 和比较条件
     public static Iterable<JanusGraphVertex> getVertices(StandardJanusGraphTx tx,
                                                     PropertyKey key, Object equalityCondition) {
         return tx.query().has(key,Cmp.EQUAL,equalityCondition).vertices();

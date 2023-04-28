@@ -16,7 +16,7 @@ package org.janusgraph.diskstorage.log;
 
 /**
  * Implementations of this interface are used to process messages read from the log.
- *
+ * 用来从log中读取消息处理。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public interface MessageReader {

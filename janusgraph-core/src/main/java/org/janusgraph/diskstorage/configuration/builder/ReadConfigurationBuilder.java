@@ -39,7 +39,7 @@ import java.util.Set;
 
 import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.*;
 
-/**
+/**构建一个全局的只读的配置
  * Builder to build {@link ReadConfiguration} instance of global configuration
  */
 public class ReadConfigurationBuilder {
@@ -56,13 +56,17 @@ public class ReadConfigurationBuilder {
                                                       ModifiableConfigurationBuilder modifiableConfigurationBuilder,
                                                       KCVSConfigurationBuilder kcvsConfigurationBuilder){
         //Read out global configuration
+        // 这里创建了KCVSConfiguration，这个配置类里面打开了一个库（列簇）叫system_properties
+        //这也是个很重的操作,
         try (KCVSConfiguration keyColumnValueStoreConfiguration =
                  kcvsConfigurationBuilder.buildStandaloneGlobalConfiguration(storeManager,localBasicConfiguration)){
 
-            // If lock prefix is unspecified, specify it now
+            // If lock prefix is unspecified, specify it now 锁前缀。
             if (!localBasicConfiguration.has(LOCK_LOCAL_MEDIATOR_GROUP)) {
                 overwrite.set(LOCK_LOCAL_MEDIATOR_GROUP, storeManager.getName());
             }
+
+
 
             //Freeze global configuration if not already frozen!
             ModifiableConfiguration globalWrite = modifiableConfigurationBuilder.buildGlobalWrite(keyColumnValueStoreConfiguration);

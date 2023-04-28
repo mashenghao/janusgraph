@@ -29,7 +29,7 @@ import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.*;
 /**
  * Abstract Store Manager used as the basis for concrete StoreManager implementations.
  * Simplifies common configuration management.
- *
+ *StoreManager 感觉就是用来管理配置的，这是个更通用的配置只记录是否支持事务，与批处理。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 

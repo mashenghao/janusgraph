@@ -53,8 +53,8 @@ public class UniqueInstanceIdRetriever {
 
     public String getOrGenerateUniqueInstanceId(Configuration config) {
         String uid;
-        if (!config.has(GraphDatabaseConfiguration.UNIQUE_INSTANCE_ID)) {
-            uid = computeUniqueInstanceId(config);
+        if (!config.has(GraphDatabaseConfiguration.UNIQUE_INSTANCE_ID)) { //不包含，则去计算生成实例id。
+            uid = computeUniqueInstanceId(config);//ip地址的编码+processId+@+hostname+encode(自增id)
             log.info("Generated {}={}", GraphDatabaseConfiguration.UNIQUE_INSTANCE_ID.getName(), uid);
         } else {
             uid = config.get(GraphDatabaseConfiguration.UNIQUE_INSTANCE_ID);
@@ -64,8 +64,8 @@ public class UniqueInstanceIdRetriever {
     }
 
     private String computeUniqueInstanceId(Configuration config) {
-        final String suffix = getSuffix(config);
-        final String uid = getUid(config);
+        final String suffix = getSuffix(config);//processId+@+hostname+encode(自增id)
+        final String uid = getUid(config);//uid是ip地址的编码
         String instanceId = uid + suffix;
         for (char c : ConfigElement.ILLEGAL_CHARS) {
             instanceId = StringUtils.replaceChars(instanceId,c,'-');

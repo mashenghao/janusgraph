@@ -690,6 +690,7 @@ public class GraphDatabaseConfiguration {
      * Size of the block to be acquired. Larger block sizes require fewer block applications but also leave a larger
      * fraction of the id pool occupied and potentially lost. For write heavy applications, larger block sizes should
      * be chosen.
+     * 设置每次获取一个块的时候 预申请的id数个数， 这是个基础配置
      */
     public static final ConfigOption<Integer> IDS_BLOCK_SIZE = new ConfigOption<>(IDS_NS,"block-size",
             "Globally reserve graph element IDs in chunks of this size.  Setting this too low will make commits " +
@@ -1349,8 +1350,8 @@ public class GraphDatabaseConfiguration {
     }
 
     public Backend getBackend() {
-        Backend backend = new Backend(configuration);
-        backend.initialize(configuration);
+        Backend backend = new Backend(configuration); //这里初始化了storeageManager(不和配置那个一样)和KVCSStrongManaher(用来获取KVCSLog包装store的。)
+        backend.initialize(configuration); //这里初始化存储用的 store，包括带锁的store。
         storeFeatures = backend.getStoreFeatures();
         return backend;
     }

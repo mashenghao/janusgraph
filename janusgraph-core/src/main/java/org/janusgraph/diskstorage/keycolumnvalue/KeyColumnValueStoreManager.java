@@ -21,11 +21,13 @@ import org.janusgraph.diskstorage.StoreMetaData;
 import java.util.Map;
 
 /**
+ * TODO: 没看懂
  * KeyColumnValueStoreManager provides the persistence context to the graph database storage backend.
+ * 这个接口为图实例提供了持久化的存储上下文 ？？？
  * <p>
  * A KeyColumnValueStoreManager provides transaction handles across multiple data stores that
  * are managed by this KeyColumnValueStoreManager.
- *
+ * 这个 玩意，可能用于hbase这种多节点存储的后端系统，一个事务可能涉及多个节点，这个类提供管理的。
  * @author Matthias Br&ouml;cheler (me@matthiasb.com);
  */
 public interface KeyColumnValueStoreManager extends StoreManager {
@@ -33,8 +35,8 @@ public interface KeyColumnValueStoreManager extends StoreManager {
     /**
      * Opens an ordered database by the given name. If the database does not exist, it is
      * created. If it has already been opened, the existing handle is returned.
-     *
-     * @param name Name of database
+     * 打开一个有序的数据库，通过给定的名字。 如果不存在的话，将会被创建，
+     * @param name Name of database 通常是列簇的名字。
      * @return Database Handle
      * @throws org.janusgraph.diskstorage.BackendException
      *
@@ -44,6 +46,8 @@ public interface KeyColumnValueStoreManager extends StoreManager {
     }
 
     /**
+     * 用来打开一个KeyColumnValueStore， 不存在创建，已经被发开了，直接返回。 就是创建一个数据库，对用到hbase上就是新建后一个列簇。
+     * KeyColumnValueStore：可以理解为hbase的某一个列簇上的数据。KeyColumnValueStore就是操作这个列簇下的数据。
      * Opens an ordered database by the given name. If the database does not exist, it is
      * created. If it has already been opened, the existing handle is returned.
      *

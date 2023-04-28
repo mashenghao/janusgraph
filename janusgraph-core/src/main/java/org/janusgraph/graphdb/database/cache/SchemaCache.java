@@ -19,13 +19,16 @@ import org.janusgraph.graphdb.types.system.BaseRelationType;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 
 /**
+ * SchemaCache 由 JanusGraph 图形数据库维护，以便通过专用缓存层更高效地频繁查找顶点约束及其属性约束。
+ *
  * This interface defines the methods that a SchemaCache must implement. A SchemaCache is maintained by the JanusGraph graph
  * database in order to make the frequent lookups of schema vertices and their attributes more efficient through a dedicated
  * caching layer. Schema vertices are type vertices and related vertices.
  *
- * The SchemaCache speeds up two types of lookups:
+ * The SchemaCache speeds up two types of lookups: 加速了两种类型的查找。
  * <ul>
- *     <li>Retrieving a type by its name (index lookup)</li>
+ *     <li>Retrieving a type by its name (index lookup)</li> 按名称检索类型。
+ *     //检索顶点约束的关系。
  *     <li>Retrieving the relations of a schema vertex for predefined {@link org.janusgraph.graphdb.types.system.SystemRelationType}s</li>
  * </ul>
  *
@@ -39,6 +42,7 @@ public interface SchemaCache {
 
     void expireSchemaElement(final long schemaId);
 
+    //获取
     interface StoreRetrieval {
 
         Long retrieveSchemaByName(final String typeName);

@@ -20,10 +20,17 @@ import org.janusgraph.core.RelationType;
 import org.janusgraph.core.VertexLabel;
 
 /**
+ * 根据从cell中取出来的label id（点label 边label 属性label） 获取定义。
+ *
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public interface TypeInspector {
 
+    /**
+     * 获取属性的Pojo，是直接从关系中直接去取的。
+     * @param id
+     * @return
+     */
     default PropertyKey getExistingPropertyKey(long id) {
         return (PropertyKey)getExistingRelationType(id);
     }
@@ -32,6 +39,11 @@ public interface TypeInspector {
         return (EdgeLabel)getExistingRelationType(id);
     }
 
+    /**
+     * 根据schema id 获取 label实体
+     * @param id
+     * @return
+     */
     RelationType getExistingRelationType(long id);
 
     VertexLabel getExistingVertexLabel(long id);

@@ -19,6 +19,8 @@ import org.janusgraph.diskstorage.StaticBuffer;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
 /**
+ * 这个是SliceQuery的子类，提供了rowkey去定位， SliceQuery相当于查找column的范围，去查找边的条件。
+ * 这个指定了vid， 查找范围缩小到了查找指定点下的边或者属性。
  * Extends {@link SliceQuery} by a key that identifies the location of the slice in the key-ring.
  * @author Matthias Broecheler (me@matthiasb.com)
  */

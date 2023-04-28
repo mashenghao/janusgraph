@@ -20,8 +20,9 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 import java.util.Collection;
 
 /**
+ * 事务标记接口，标记着，实现这个接口的graph，是个支持事务的图数据，
  * Transaction defines a transactional context for a {@link org.janusgraph.core.JanusGraph}. Since JanusGraph is a transactional graph
- * database, all interactions with the graph are mitigated by a Transaction.
+ * database, all interactions (操作) with the graph are mitigated by a Transaction.
  * <p>
  * All vertex and edge retrievals are channeled by a graph transaction which bundles all such retrievals, creations and
  * deletions into one transaction. A graph transaction is analogous to a

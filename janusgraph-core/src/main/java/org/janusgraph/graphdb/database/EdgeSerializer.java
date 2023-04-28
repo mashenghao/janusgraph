@@ -85,23 +85,25 @@ public class EdgeSerializer implements RelationReader {
     @Override
     public RelationCache parseRelation(Entry data, boolean excludeProperties, TypeInspector tx) {
         ReadBuffer in = data.asReadBuffer();
-
+        //从entry中解析出，这个entry的类型，去取前多3位，
         LongObjectHashMap properties = excludeProperties ? null : new LongObjectHashMap(4);
+        //读取关系的类型，从cell的column中前几个字节中能够解析出这个cell是啥类型。property、edge-out 或者 edge-in
         RelationTypeParse typeAndDir = IDHandler.readRelationType(in);
 
         long typeId = typeAndDir.typeId;
         Direction dir = typeAndDir.dirID.getDirection();
-
+        //每个edge列簇下每个cell都能找到对应的RelationType； typeId 101 是内置的点属性VertexExists， typeid=2 是VertexLabel类型
         RelationType relationType = tx.getExistingRelationType(typeId);
+
         InternalRelationType def = (InternalRelationType) relationType;
         Multiplicity multiplicity = def.multiplicity();
         long[] keySignature = def.getSortKey();
 
-        long relationId;
+        long relationId;//边id 或者 property的id
         Object other;
         int startKeyPos = in.getPosition();
-        int endKeyPos = 0;
-        if (relationType.isEdgeLabel()) {
+        int endKeyPos = 0;//VertexLabel 关系类型是edgeLabel，记录了点的label值。
+        if (relationType.isEdgeLabel()) {//relationtype 可以是点label，也可以是点属性存在边上
             long otherVertexId;
             if (multiplicity.isConstrained()) {
                 if (multiplicity.isUnique(dir)) {
@@ -121,10 +123,10 @@ public class EdgeSerializer implements RelationReader {
                 in.movePositionTo(data.getValuePosition());
             }
             other = otherVertexId;
-        } else {
+        } else {// cell 是属性类型
             assert relationType.isPropertyKey();
             PropertyKey key = (PropertyKey) relationType;
-
+            key.dataType();
             if (multiplicity.isConstrained()) {
                 other = readPropertyValue(in,key);
                 relationId = VariableLong.readPositive(in);
@@ -133,13 +135,13 @@ public class EdgeSerializer implements RelationReader {
                 relationId = VariableLong.readPositiveBackward(in);
                 endKeyPos = in.getPosition();
                 in.movePositionTo(data.getValuePosition());
-                other = readPropertyValue(in,key);
+                other = readPropertyValue(in,key); //解析属性其他部分，除了类型外
             }
-            Preconditions.checkNotNull(other,
+                Preconditions.checkNotNull(other,
                 "Encountered error in deserializer [null value returned]. Check serializer compatibility.");
         }
         assert other!=null;
-
+        //属性值也能设置sortkey
         if (!excludeProperties && !multiplicity.isConstrained() && keySignature.length>0) {
             int currentPos = in.getPosition();
             //Read sort key which only exists if type is not unique in this direction
@@ -151,12 +153,12 @@ public class EdgeSerializer implements RelationReader {
             readInlineTypes(keySignature, properties, inKey, tx, InlineType.KEY);
             in.movePositionTo(currentPos);
         }
-
+        //解析cell 的 value部分
         if (!excludeProperties) {
-            //read value signature
+            //read value signature  读取值部分的singre。
             readInlineTypes(def.getSignature(), properties, in, tx, InlineType.SIGNATURE);
 
-            //Third: read rest
+            //Third: read rest  普通的属性值，还得从value解析出属性key的labelid 与 属性序列id ，属性值。
             while (in.hasRemaining()) {
                 PropertyKey type = tx.getExistingPropertyKey(IDHandler.readInlineRelationType(in));
                 Object propertyValue = readInline(in, type, InlineType.NORMAL);
@@ -382,6 +384,18 @@ public class EdgeSerializer implements RelationReader {
         return new SliceQuery(bound[0], bound[1]);
     }
 
+    /**
+     * 获取一个边的SliceQuery实例，指定查询的边的类型(属性与边)，并且指定边的方向，与排序key。
+     * 就能返回一个查询指定边的SliceQuery。 外部在指定rowkey，就能确定唯一的边了。
+     *
+     * //主要构造的逻辑就是根据元素类型(EdgeLabel 或者 PropertyKey 含内部点属性标签与用户自定义边标签)，还有方向，确定column的
+     * startKey  和 endKey。
+     *
+     * @param type
+     * @param dir
+     * @param sortKey
+     * @return
+     */
     public SliceQuery getQuery(InternalRelationType type, Direction dir, TypedInterval[] sortKey) {
         Preconditions.checkNotNull(type);
         Preconditions.checkNotNull(dir);
@@ -391,6 +405,7 @@ public class EdgeSerializer implements RelationReader {
         StaticBuffer sliceStart = null, sliceEnd = null;
         RelationCategory rt = type.isPropertyKey() ? RelationCategory.PROPERTY : RelationCategory.EDGE;
         if (dir == Direction.BOTH) {
+            //寻找type 双向的边， 则 开始key就是labelId+0  终止key是 labelId+1。
             assert type.isEdgeLabel();
             sliceStart = IDHandler.getRelationType(type.longId(), getDirID(Direction.OUT, rt), type.isInvisibleType());
             sliceEnd = IDHandler.getRelationType(type.longId(), getDirID(Direction.IN, rt), type.isInvisibleType());

@@ -1,16 +1,7 @@
-// Copyright 2017 JanusGraph Authors
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by FernFlower decompiler)
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 package org.janusgraph.hadoop.formats.util;
 
@@ -75,7 +66,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
     // The neighboring vertices are represented by DetachedVertex instances
     public TinkerVertex readHadoopVertex(final StaticBuffer key, Iterable<Entry> entries, GraphFilter filter) {
 
-        // Convert key to a vertex ID
+        // Convert key to a vertex ID 根据rowkey解析vertexid
         final long vertexId = idManager.getKeyID(key);
         Preconditions.checkArgument(vertexId > 0);
 
@@ -92,12 +83,14 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
 
         TinkerVertex tv = null;
 
+        //节点的label id是存在edge的column中的，从edge列簇中遍历寻找label id。点的label的column的lable id项=2
         // Iterate over edgestore columns to find the vertex's label relation
         for (final Entry data : entries) {
             RelationReader relationReader = setup.getRelationReader(vertexId);
             final RelationCache relation = relationReader.parseRelation(data, false, typeManager);
             if (systemTypes.isVertexLabelSystemType(relation.typeId)) {
-                // Found vertex Label
+                // Found vertex Label，从边列簇中找到了typeid是点标签的边。
+                // 这是把点label的schema定义是一个图节点，该label下的数据点之间有个relation，relation的OtherVertexId是label点。
                 long vertexLabelId = relation.getOtherVertexId();
                 VertexLabel vl = typeManager.getExistingVertexLabel(vertexLabelId);
                 if (filter != null && filter.isHasVertexLabelFilter() && !filter.getVertexLabelFilter().test(vl.name())) {
@@ -105,6 +98,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                 }
                 // Create TinkerVertex with this label
                 tv = getOrCreateVertex(vertexId, vl.name(), tg);
+//                break;
             }
         }
 
@@ -116,6 +110,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
         Preconditions.checkNotNull(tv, "Unable to determine vertex label for vertex with ID %s", vertexId);
 
         // Iterate over and decode edgestore columns (relations) on this vertex
+        //去找边信息了或者点的属性信息。
         for (final Entry data : entries) {
             try {
                 if (filter != null && filter.allowNoEdges() && filter.allowNoProperties()) {
@@ -129,7 +124,7 @@ public class JanusGraphVertexDeserializer implements AutoCloseable {
                 if (((InternalRelationType) type).isInvisibleType()) continue; //Ignore hidden types
 
                 // Decode and create the relation (edge or property)
-                if (type.isPropertyKey()) {
+                if (type.isPropertyKey()) { //typeId是个PropertyKey，解析为中心的属性值。
                     if (filter != null && (filter.allowNoProperties() || filter.checkPropertyLegality(type.name()).negative()))
                         continue;
                     // Decode property

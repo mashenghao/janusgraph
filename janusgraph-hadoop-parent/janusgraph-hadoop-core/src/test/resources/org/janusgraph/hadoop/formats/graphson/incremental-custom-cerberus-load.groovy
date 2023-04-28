@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+import org.apache.tinkerpop.gremlin.structure.Vertex
+import org.janusgraph.core.JanusGraphVertex
 import org.janusgraph.core.JanusGraphVertexProperty
 
 def JanusGraphVertex getOrCreateVertex(faunusVertex, graph, context, log) {

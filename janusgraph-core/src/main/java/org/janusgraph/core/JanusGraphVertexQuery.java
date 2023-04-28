@@ -15,14 +15,25 @@
 package org.janusgraph.core;
 
 import com.google.common.collect.Iterables;
+import org.janusgraph.diskstorage.keycolumnvalue.KeySliceQuery;
 import org.janusgraph.graphdb.query.JanusGraphPredicate;
 import org.apache.tinkerpop.gremlin.process.traversal.Order;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.janusgraph.graphdb.vertices.StandardVertex;
 
 /**
+ * 1. janusgrah 基于中心点构造查询条件，创建这个JanusGraphVertexQuery的实例的必须是有点id，
+ * 基于这个点id，设置查询边的类型，指向等， 或者设置查询的属性key。 这个查询条件是暴露给图语义层调用的，
+ * 最终的话，落到DB层要从{@link KeySliceQuery}这种，转换为rowkey和column Filter的查询条件。
+ *2. 针对于单点进行查询,返回的实例是通过{@link StandardVertex#query()} 返回的，是点实例返回的查询，
+ * 因为这个查询是点中心查询。
+ *
+ *
+ * 为单个顶点执行查询。
  * A JanusGraphVertexQuery is a VertexQuery executed for a single vertex.
  * <p>
+ * 被点的query方法调用。
  * Calling {@link org.janusgraph.core.JanusGraphVertex#query()} builds such a query against the vertex
  * this method is called on. This query builder provides the methods to specify which incident edges or
  * properties to query for.
@@ -82,11 +93,13 @@ public interface JanusGraphVertexQuery<Q extends JanusGraphVertexQuery<Q>> exten
 
 
     /* ---------------------------------------------------------------
-    * Query execution
+    * Query execution  查询执行，
     * ---------------------------------------------------------------
     */
 
     /**
+     * 查询返回匹配到的边。VertexCentricQueryBuilder 实例是。
+     *
      * Returns an iterable over all incident edges that match this query
      *
      * @return Iterable over all incident edges that match this query

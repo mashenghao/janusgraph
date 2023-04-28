@@ -66,6 +66,7 @@ public abstract class HadoopInputFormat extends InputFormat<NullWritable, Vertex
 
     @Override
     public RecordReader<NullWritable, VertexWritable> createRecordReader(InputSplit split, TaskAttemptContext context) throws IOException, InterruptedException {
+        //inputFormat.createRecordReader(split, context) 已经是经过包装的，过滤和转换后的reader。
         return new HadoopRecordReader(refCounter, inputFormat.createRecordReader(split, context));
     }
 

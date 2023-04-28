@@ -84,17 +84,32 @@ public class PageRankVertexProgram extends StaticVertexProgram<Double> {
     @Override
     public void execute(Vertex vertex, Messenger<Double> messenger, Memory memory) {
         if (memory.isInitialIteration()) {
+            //首次迭代，为该点的所有入边的始点，发送double类型的消息为 1D。
             messenger.sendMessage(inE, 1D);
         } else if (1 == memory.getIteration()) {
+            //1. 第一次迭代: 聚合每个点收到的消息，这个消息的意思是，该点有几个出边。
             double initialPageRank = 1D / vertexCount;
             double edgeCount = IteratorUtils.stream(messenger.receiveMessages()).reduce(0D, (a, b) -> a + b);
+
+            //2. 给每个点，添加两个computeKeys，一个是pagerank，一个是edgeCount出边数量。
             vertex.property(VertexProperty.Cardinality.single, PAGE_RANK, initialPageRank);
             vertex.property(VertexProperty.Cardinality.single, OUTGOING_EDGE_COUNT, edgeCount);
+
+            //3. 给该点的所有出边的的终点，即outV，即给该点发送消息的计算点，发送值是 1/该点入边数量。
             messenger.sendMessage(outE, initialPageRank / edgeCount);
+
         } else {
+            //1. 聚合该点每个inE的outV(与该点有入边的点) a<- otherV,发过来的otherV的边的 1/出边数。 计算点的inV， 如果inV的出边越少，
+            //则计算点的pagerank值越大。
             double newPageRank = IteratorUtils.stream(messenger.receiveMessages()).reduce(0D, (a, b) -> a + b);
-            newPageRank =  (dampingFactor * newPageRank) + ((1D - dampingFactor) / vertexCount);
+
+            //2. 算出该点的PageRank值。 固定算法，反正点的入边越多，pagerank越大。
+            newPageRank =  (dampingFactor * newPageRank) + ((1D - dampingFactor) / vertexCount); //(0.85*rank) + (0.15/1)
+
+            //3. 设置点的pagerank值，因为这个是计算属性，需要放到点上面，为了下次迭代计算的时候，将数据传入出去。
             vertex.property(VertexProperty.Cardinality.single, PAGE_RANK, newPageRank);
+
+            //4. 给计算点的outV，发送消息， 消息值是pagerank/点的出边数。
             messenger.sendMessage(outE, newPageRank / vertex.<Double>value(OUTGOING_EDGE_COUNT));
         }
     }
@@ -109,10 +124,10 @@ public class PageRankVertexProgram extends StaticVertexProgram<Double> {
         return ImmutableSet.of(outE, inE);
     }
 
-    @Override
+/*    @Override
     public <P extends WriteBackService> Class<P> getServiceClass() throws ClassNotFoundException {
         return null;
-    }
+    }*/
 
     @Override
     public GraphComputer.ResultGraph getPreferredResultGraph() {

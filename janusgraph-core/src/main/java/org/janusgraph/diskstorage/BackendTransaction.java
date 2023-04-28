@@ -52,7 +52,7 @@ import org.janusgraph.graphdb.database.serialize.DataOutput;
  * Bundles all storage/index transactions and provides a proxy for some of their
  * methods for convenience. Also increases robustness of read call by attempting
  * read calls multiple times on failure.
- *
+ * 负责存储端与索引端事务，并且提供某些方法的代理。 失败时，做了重试处理。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 
@@ -71,6 +71,7 @@ public class BackendTransaction implements LoggableTransaction {
     private final BaseTransactionConfig txConfig;
     private final StoreFeatures storeFeatures;
 
+    //存储边用的那个KCV hbase列簇
     private final KCVSCache edgeStore;
     private final KCVSCache indexStore;
     private final KCVSCache txLogStore;
@@ -283,7 +284,7 @@ public class BackendTransaction implements LoggableTransaction {
         if (storeFeatures.hasMultiQuery()) {
             return executeRead(new Callable<Map<StaticBuffer,EntryList>>() {
                 @Override
-                public Map<StaticBuffer,EntryList> call() throws Exception {
+                public Map<StaticBuffer,EntryList> call() throws Exception {//查询会调用到这人。
                     return cacheEnabled?edgeStore.getSlice(keys, query, storeTx):
                                         edgeStore.getSliceNoCache(keys, query, storeTx);
                 }

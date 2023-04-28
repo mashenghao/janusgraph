@@ -16,7 +16,7 @@ package org.janusgraph.diskstorage;
 
 /**
  * Represents a transaction for a particular storage backend.
- *
+ * 代表特定存储后端的事务。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 

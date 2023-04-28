@@ -116,7 +116,7 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
     private final IDManager idManager;
     private final IDManager idInspector;
     private final AttributeHandler attributeHandler;
-    private BackendTransaction txHandle;
+    private BackendTransaction txHandle;//后端存储事务
     private final EdgeSerializer edgeSerializer;
     private final IndexSerializer indexSerializer;
 
@@ -125,7 +125,7 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
      ############################################### */
 
     //####### Vertex Cache
-    /**
+    /**点缓存。事务级别的缓存，20000个点。
      * Keeps track of vertices already loaded in memory. Cannot release vertices with added relations.
      */
     private final VertexCache vertexCache;
@@ -169,6 +169,8 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
     private final Map<String, Long> newTypeCache;
 
     /**
+     * 用于分配临时id到新的顶点和关系添加在这个事务。
+     *如果id是立即分配的，则不使用。这个IDPool在所有元素之间共享。
      * Used to assign temporary ids to new vertices and relations added in this transaction.
      * If ids are assigned immediately, this is not used. This IDPool is shared across all elements.
      */
@@ -388,6 +390,7 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
         return (null == v || v.isRemoved()) ? null : v;
     }
 
+    //模版方法的实现，获取点id。
     @Override
     public Iterable<JanusGraphVertex> getVertices(long... ids) {
         verifyOpen();
@@ -399,7 +402,7 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
         final List<JanusGraphVertex> result = new ArrayList<>(ids.length);
         final LongArrayList vertexIds = new LongArrayList(ids.length);
         for (long id : ids) {
-            if (isValidVertexId(id)) {
+            if (isValidVertexId(id)) {//校验这个id的前缀字节是否是约束有的。
                 if (idInspector.isPartitionedVertex(id)) id=idManager.getCanonicalVertexId(id);
                 if (vertexCache.contains(id))
                     result.add(vertexCache.get(id, existingVertexRetriever));
@@ -451,13 +454,31 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
             return verifyExistence;
         }
 
+        /**
+         * //////////////////////////////////
+         * 这个是个通过方法，根据点id，去检索Janusgraph的点。 //
+         *  点的类型可以是schema点(VertexLabelVertex, EdgeLabelVertex,PropertyKeyVertex,也可以是JanusgraphVertex。)
+         * //////////////////////////////////
+         *
+         * 根据点id 获取点的数据
+         * 点id类型可能是：
+         * 存储的是PropertyKey的定义 0101
+         * EdgeLabel的定义
+         * VertexLabel 01101 (这个是用户定义的点label约束， 不同于vertexLabelEdge，是内置的edgeLabel约束，具体类型，边方向啥的约束已经定义好了。)
+         * @param vertexId
+         * @return
+         */
         @Override
         public InternalVertex get(Long vertexId) {
             Preconditions.checkArgument(vertexId!=null && vertexId > 0, "Invalid vertex id: %s",vertexId);
             Preconditions.checkArgument(idInspector.isSchemaVertexId(vertexId) || idInspector.isUserVertexId(vertexId), "Not a valid vertex id: %s", vertexId);
 
             byte lifecycle = ElementLifeCycle.Loaded;
-            long canonicalVertexId = idInspector.isPartitionedVertex(vertexId)?idManager.getCanonicalVertexId(vertexId):vertexId;
+            long canonicalVertexId = idInspector.isPartitionedVertex(vertexId)?
+                idManager.getCanonicalVertexId(vertexId): //如果是patition类型的点，点id需要特殊处理
+                vertexId;
+
+            //验证点是否还存在，查找该点id对应的rowkey下~VertexExists这个属性。
             if (verifyExistence) {
                 if (graph.edgeQuery(canonicalVertexId, graph.vertexExistenceQuery, txHandle).isEmpty())
                     lifecycle = ElementLifeCycle.Removed;
@@ -468,6 +489,7 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
             }
 
             final InternalVertex vertex;
+            //PropertyKeyVertex 或者 EdgeLabelVertex 0101
             if (idInspector.isRelationTypeId(vertexId)) {
                 if (idInspector.isPropertyKeyId(vertexId)) {
                     if (IDManager.isSystemRelationTypeId(vertexId)) {
@@ -483,13 +505,19 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
                         vertex = new EdgeLabelVertex(StandardJanusGraphTx.this, vertexId, lifecycle);
                     }
                 }
-            } else if (idInspector.isVertexLabelVertexId(vertexId)) {
+            } else if (idInspector.isVertexLabelVertexId(vertexId)) { //01101 VertexLabelVertex 存点label的定义的。
                 vertex = new VertexLabelVertex(StandardJanusGraphTx.this,vertexId, lifecycle);
             } else if (idInspector.isGenericSchemaVertexId(vertexId)) {
                 vertex = new JanusGraphSchemaVertex(StandardJanusGraphTx.this,vertexId, lifecycle);
             } else if (idInspector.isUserVertexId(vertexId)) {
-                if (createStubVertex) vertex = new PreloadedVertex(StandardJanusGraphTx.this, vertexId, lifecycle);
-                else vertex = new CacheVertex(StandardJanusGraphTx.this, vertexId, lifecycle);
+                //
+                if (createStubVertex)
+                    vertex = new PreloadedVertex(StandardJanusGraphTx.this, vertexId, lifecycle);
+                else
+                    //查询就返回了一个点，点上设置lifecycle， 应该是懒加载，用的时候，再去hbase去取数据。 这里就是构造一个点(传入点的vid也就是rowkey)，
+                    //如果要是去取点上的属性，则根据rowkey去hbase 去取Property类型的边， 如果是边，则去去取边。
+                    vertex = new CacheVertex(StandardJanusGraphTx.this, vertexId, lifecycle);
+
             } else throw new IllegalArgumentException("ID could not be recognized");
             return vertex;
         }
@@ -507,12 +535,16 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
         Preconditions.checkArgument(vertexId == null || IDManager.VertexIDType.NormalVertex.is(vertexId), "Not a valid vertex id: %s", vertexId);
         Preconditions.checkArgument(vertexId == null || ((InternalVertexLabel)label).hasDefaultConfiguration(), "Cannot only use default vertex labels: %s",label);
         Preconditions.checkArgument(vertexId == null || !config.hasVerifyExternalVertexExistence() || !containsVertex(vertexId), "Vertex with given id already exists: %s", vertexId);
+
+        //临时设置了个点id。
         StandardVertex vertex = new StandardVertex(this, IDManager.getTemporaryVertexID(IDManager.VertexIDType.NormalVertex, temporaryIds.nextID()), ElementLifeCycle.New);
+
         if (vertexId != null) {
             vertex.setId(vertexId);
         } else if (config.hasAssignIDsImmediately() || label.isPartitioned()) {
             graph.assignID(vertex,label);
         }
+        //每个点添加属性，VertexExists
         addProperty(vertex, BaseKey.VertexExists, Boolean.TRUE);
         if (label!=BaseVertexLabel.DEFAULT_VERTEXLABEL) { //Add label
             Preconditions.checkArgument(label instanceof VertexLabelVertex);
@@ -525,6 +557,7 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
 
     @Override
     public JanusGraphVertex addVertex(String vertexLabel) {
+        //
         return addVertex(getOrCreateVertexLabel(vertexLabel));
     }
 
@@ -934,7 +967,7 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
 
     public JanusGraphSchemaVertex getSchemaVertex(String schemaName) {
         Long schemaId = newTypeCache.get(schemaName);
-        if (schemaId==null) schemaId=graph.getSchemaCache().getSchemaId(schemaName);
+        if (schemaId==null) schemaId=graph.getSchemaCache().getSchemaId(schemaName);//根据schemaName获取schemaId,即schema图节点的id。
         if (schemaId != null) {
             InternalVertex typeVertex = vertexCache.get(schemaId, existingVertexRetriever);
             assert typeVertex!=null;
@@ -968,8 +1001,8 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
         RelationType type = getRelationType(name);
         return type!=null && type.isEdgeLabel();
     }
-
     // this is critical path we can't allow anything heavier then assertion in here
+    //根据typeid 获取关系类型。
     @Override
     public RelationType getExistingRelationType(long typeId) {
         assert idInspector.isRelationTypeId(typeId);
@@ -1367,7 +1400,7 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
     /*
      * ------------------------------------ Transaction State ------------------------------------
      */
-
+    //最终事务提交落到这儿，是graph通过txs从threadLocal取到这个实例的，然后交由操作。
     @Override
     public synchronized void commit() {
         Preconditions.checkArgument(isOpen(), "The transaction has already been closed");

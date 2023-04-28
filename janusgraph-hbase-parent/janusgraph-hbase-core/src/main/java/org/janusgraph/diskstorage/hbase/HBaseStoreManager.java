@@ -92,10 +92,10 @@ import org.janusgraph.util.system.IOUtils;
 import org.janusgraph.util.system.NetworkUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 /**
  * Storage Manager for HBase
- *
+ * hbase的实现类，被Backed.getStorageManager()通过反射初始化。是分布式DistributedStoreManager的子类，具备分布式存储管理器的特性，比如多个host等，
+ *同时实现了，KeyColumnValueStoreManager，这个接口
  * @author Dan LaRocque &lt;dalaro@hopcount.org&gt;
  */
 @PreInitializeConfigOptions
@@ -247,7 +247,7 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
 
     private static final StaticBuffer FOUR_ZERO_BYTES = BufferUtil.zeroBuffer(4);
 
-    // Immutable instance fields
+    // Immutable instance fields         //{graphindex=g, graphindex_lock_=h, janusgraph_ids=i, edgestore=e, edgestore_lock_=f, system_properties=s, system_properties_lock_=t, systemlog=m, txlog=l}
     private final BiMap<String, String> shortCfNameMap;
     private final String tableName;
     private final String compression;
@@ -264,13 +264,13 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
 
     private static final ConcurrentHashMap<HBaseStoreManager, Throwable> openManagers = new ConcurrentHashMap<>();
 
-    // Mutable instance state
+    // Mutable instance state 可变的实例状态。
     private final ConcurrentMap<String, HBaseKeyColumnValueStore> openStores;
-
+    //初始化hbase的storagemanager。
     public HBaseStoreManager(org.janusgraph.diskstorage.configuration.Configuration config) throws BackendException {
         super(config, PORT_DEFAULT);
-
-        shortCfNameMap = createShortCfMap(config);
+        //{graphindex=g, graphindex_lock_=h, janusgraph_ids=i, edgestore=e, edgestore_lock_=f, system_properties=s, system_properties_lock_=t, systemlog=m, txlog=l}
+        shortCfNameMap = createShortCfMap(config);//给列簇创建别名，节约存储，hbase的存储器的特有配置。
 
         Preconditions.checkArgument(null != shortCfNameMap);
         Collection<String> shorts = shortCfNameMap.values();
@@ -300,7 +300,7 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
          */
         hconf = HBaseConfiguration.create();
 
-        // Copy a subset of our commons config into a Hadoop config
+        // Copy a subset of our commons config into a Hadoop config,这里复制了storage.hbase.ext 的配置加到了hbase的conf中，包括hbase的zk地址等其他的
         int keysLoaded=0;
         Map<String,Object> configSub = config.getSubset(HBASE_CONFIGURATION_NAMESPACE);
         for (Map.Entry<String,Object> entry : configSub.entrySet()) {
@@ -331,7 +331,7 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
         this.shortCfNames = config.get(SHORT_CF_NAMES);
 
         try {
-            //this.cnx = HConnectionManager.createConnection(hconf);
+            //this.cnx = HConnectionManager.createConnection(hconf);，就是一层包装。
             this.cnx = compat.createConnection(hconf);
         } catch (IOException e) {
             throw new PermanentBackendException(e);
@@ -364,7 +364,7 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
                 .put(SYSTEM_TX_LOG_NAME, "l")
                 .build();
     }
-
+    //实现了DistributedStoreManager的获取到后端连接的类型，通常都是REMOTE。因为regisonServer通常不和janusgraph部署在一起。
     @Override
     public Deployment getDeployment() {
         if (null != deployment) {
@@ -462,12 +462,14 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
         sleepAfterWrite(txh, commitTime);
     }
 
+    //     * 用来打开一个KeyColumnValueStore， 不存在创建，已经被发开了，直接返回。 就是创建一个数据库，对用到hbase上就是新建后一个列簇。
+    //     * KeyColumnValueStore：可以理解为hbase的某一个列簇上的数据。KeyColumnValueStore就是操作这个列簇下的数据。
     @Override
     public KeyColumnValueStore openDatabase(String longName, StoreMetaData.Container metaData) throws BackendException {
         // HBase does not support retrieving cell-level TTL by the client.
         Preconditions.checkArgument(!storageConfig.has(GraphDatabaseConfiguration.STORE_META_TTL, longName)
             || !storageConfig.get(GraphDatabaseConfiguration.STORE_META_TTL, longName));
-
+        //先从属性中去取。
         HBaseKeyColumnValueStore store = openStores.get(longName);
 
         if (store == null) {
@@ -483,7 +485,7 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
                     if (metaData.contains(StoreMetaData.TTL)) {
                         cfTTLInSeconds = metaData.get(StoreMetaData.TTL);
                     }
-                    ensureColumnFamilyExists(tableName, cfName, cfTTLInSeconds);
+                    ensureColumnFamilyExists(tableName, cfName, cfTTLInSeconds);//确保列簇的存在。
                 }
 
                 store = newStore;
@@ -529,14 +531,14 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
             throw new TemporaryBackendException(e);
         }
     }
-
+    //接口实现，用于获取本机 对应的数据分区的起始与终点值key。这里获取到hbase的所有regionLocation信息，然后比较每个region所在的rs，是否是本机地址。如果是本机地址，则为返回值，
     @Override
     public List<KeyRange> getLocalKeyPartition() throws BackendException {
         List<KeyRange> result = new LinkedList<>();
         try {
-            ensureTableExists(
+            ensureTableExists( //用来确定hbase表存在，如果不存在，则会初始化一个hbase表，初始化列簇s。
                 tableName, getCfNameForStoreName(GraphDatabaseConfiguration.SYSTEM_PROPERTIES_STORE_NAME), 0);
-            Map<KeyRange, ServerName> normed = normalizeKeyBounds(cnx.getRegionLocations(tableName));
+            Map<KeyRange, ServerName> normed = normalizeKeyBounds(cnx.getRegionLocations(tableName));//这里面将，hbase的regionLocation封装成HbaseStorage用的格式，也是key的大小与对应regisonServer的位置。
 
             for (Map.Entry<KeyRange, ServerName> e : normed.entrySet()) {
                 if (NetworkUtil.isLocalConnection(e.getValue().getHostname())) {
@@ -716,13 +718,13 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
         HTableDescriptor desc;
 
         try { // Create our table, if necessary
-            adm = getAdminInterface();
+            adm = getAdminInterface(); //获取hbase的admin
             /*
              * Some HBase versions / implementations respond badly to attempts to create a
              * table without at least one CF. See #661. Creating a CF along with
              * the table avoids HBase carping.
              */
-            if (adm.tableExists(tableName)) {
+            if (adm.tableExists(tableName)) {//存在表，
                 desc = adm.getTableDescriptor(tableName);
                 // Check and warn if long and short cf names are interchangeably used for the same table.
                 if (shortCfNames && initialCFName.equals(shortCfNameMap.get(SYSTEM_PROPERTIES_STORE_NAME))) {
@@ -741,7 +743,7 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
                         logger.warn("Check {} configuration.", SHORT_CF_NAMES.getName());
                     }
                 }
-            } else {
+            } else { //不存在表，就创建，初始化列簇名 为s，0. 这里面有设置region的初始个数的。
                 desc = createTable(tableName, initialCFName, ttlInSeconds, adm);
             }
         } catch (IOException e) {
@@ -834,7 +836,7 @@ public class HBaseStoreManager extends DistributedStoreManager implements KeyCol
                 } catch (IOException e) {
                     throw new TemporaryBackendException(e);
                 }
-
+                //这里是新建列簇的操作
                 try {
                     HColumnDescriptor columnDescriptor = new HColumnDescriptor(columnFamily);
 

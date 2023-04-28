@@ -37,6 +37,8 @@ public interface VertexLabelMaker {
     String getName();
 
     /**
+     * 设置支持分区。
+     *
      * Enables partitioning for this vertex label. If a vertex label is partitioned, all of its
      * vertices are partitioned across the partitions of the graph.
      *

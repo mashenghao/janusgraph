@@ -18,6 +18,8 @@ package org.janusgraph.core;
 import org.janusgraph.core.schema.JanusGraphSchemaType;
 
 /**
+ * 为JanusGraphRelation 定义的关系类型约束，JanusGraphRelation 是属性 和 边的父类，因此这个RelationType 约束定义也是
+ * 他们的父类。RelationTypeMaker 是用来创建这个约束的。
  * RelationType defines the schema for {@link JanusGraphRelation}. RelationType can be configured through {@link org.janusgraph.core.schema.RelationTypeMaker} to
  * provide data verification, better storage efficiency, and higher retrieval performance.
  * <br>

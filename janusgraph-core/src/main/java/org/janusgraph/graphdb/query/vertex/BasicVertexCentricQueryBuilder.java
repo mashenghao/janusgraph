@@ -42,6 +42,11 @@ import javax.annotation.Nullable;
 import java.util.*;
 
 /**
+ *
+ * 图语义层转换为hbase层查询构造器。
+ *
+ * <h2>这个声明是将{@link BaseVertexQuery} 图语义的查询，转为{@link BaseVertexCentricQuery}hbase层的二进制查询。</h2>
+ *
  * Builds a {@link BaseVertexQuery}, optimizes the query and compiles the result into
  * a {@link org.janusgraph.graphdb.query.vertex.BaseVertexCentricQuery} which is then executed by one of the extending
  * classes.
@@ -305,8 +310,10 @@ public abstract class BasicVertexCentricQueryBuilder<Q extends BaseVertexQuery<Q
     private Iterable<JanusGraphRelation> executeIndividualRelations(InternalVertex vertex,
                                                                     BaseVertexCentricQuery baseQuery) {
         VertexCentricQuery query = constructQuery(vertex, baseQuery);
-        if (useSimpleQueryProcessor(query,vertex)) return new SimpleVertexQueryProcessor(query,tx).relations();
-        else return new QueryProcessor<>(query, tx.edgeProcessor);
+        if (useSimpleQueryProcessor(query,vertex))
+            return new SimpleVertexQueryProcessor(query,tx).relations();
+        else
+            return new QueryProcessor<>(query, tx.edgeProcessor);
     }
 
     public Iterable<JanusGraphVertex> executeVertices(InternalVertex vertex, BaseVertexCentricQuery baseQuery) {
@@ -423,7 +430,7 @@ public abstract class BasicVertexCentricQueryBuilder<Q extends BaseVertexQuery<Q
 
         //Prepare direction
         if (returnType == RelationCategory.PROPERTY) {
-            if (dir == Direction.IN)
+            if (dir == Direction.IN) //属性的方向都是OUT。
                 return BaseVertexCentricQuery.emptyQuery();
             dir = Direction.OUT;
         }

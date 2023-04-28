@@ -16,6 +16,10 @@ package org.janusgraph.graphdb.database.idassigner;
 
 public interface IDPool {
 
+    /**
+     *
+     * @return
+     */
     long nextID();
 
     void close();

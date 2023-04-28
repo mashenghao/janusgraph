@@ -23,12 +23,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 /**
+ *记录每个事务对象，持有了那些数据的锁， 存储结构是map<事务对象,<lockID,Hbase当前进程id写入的记录>>。
+ * 必须获取到本地锁后 并写入到hbase记录中成功后才写入记录。
+ *
+ *
  * A store for {@code LockStatus} objects. Thread-safe so long as the method
  * calls with any given {@code StoreTransaction} are serial. Put another way,
  * thread-safety is only broken by concurrently calling this class's methods
  * with the same {@code StoreTransaction} instance in the arguments to each
  * concurrent call.
- * 
+ *
  * @see AbstractLocker
  * @param <S>
  *            The {@link LockStatus} type.
@@ -38,6 +42,12 @@ public class LockerState<S> {
     /**
      * Locks taken in the LocalLockMediator and written to the store (but not
      * necessarily checked)
+     * k：事务对象
+     * v: 当前事务持有的锁集合：
+     *  k：锁编号
+     *  v:锁的状态，详细信息。
+     *
+     *  记录当前事务，持有了那些数据的锁。
      */
     private final ConcurrentMap<StoreTransaction, Map<KeyColumn, S>> locks;
 

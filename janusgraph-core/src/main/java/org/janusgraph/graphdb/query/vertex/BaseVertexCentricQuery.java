@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ *
  * The base implementation for {@link VertexCentricQuery} which does not yet contain a reference to the
  * base vertex of the query. This query is constructed by {@link BasicVertexCentricQueryBuilder#constructQuery(org.janusgraph.graphdb.internal.RelationCategory)}
  * and then later extended by single or multi-vertex query which add the vertex to the query.

@@ -39,17 +39,21 @@ import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.*;
  * Builder for {@link GraphDatabaseConfiguration}
  */
 public class GraphDatabaseConfigurationBuilder {
-
+    //该类创建获取到了hbase的connection，创建表，创建配置列簇等操作。
+    //返回的配置类，有各个配置文件信息，实例id，globalConfig（KCVSConfiguration） 包括了storageManager和KeyColumnValueStore 两个大存储。
     public GraphDatabaseConfiguration build(ReadConfiguration localConfig){
 
         Preconditions.checkNotNull(localConfig);
 
         BasicConfiguration localBasicConfiguration = new BasicConfiguration(ROOT_NS,localConfig, BasicConfiguration.Restriction.NONE);
         ModifiableConfiguration overwrite = new ModifiableConfiguration(ROOT_NS,new CommonsConfiguration(), BasicConfiguration.Restriction.NONE);
-
+        //初始方法1（获取storeManager实例）： 这里返回的是KeyColumnValueStoreManager，特有的接口是可以获取某个分区的数据。
         final KeyColumnValueStoreManager storeManager = Backend.getStorageManager(localBasicConfiguration);
-        final StoreFeatures storeFeatures = storeManager.getFeatures();
+        final StoreFeatures storeFeatures = storeManager.getFeatures();//也获取到了存储管理器支持的特性，主要用于后来KeyColumnValueStore的查询使用，
 
+        //里面有很多的逻辑，也是进行初始化的操作。new KCVSConfigurationBuilder()
+        // 初始化了一个hbase的列族,并且存到额storagemanager中了。
+        // 初始方法2（构建全局只读配置）： 创建KCVSConfiguration配置，打开存储系统的一个KeyColumnValueStore 用于存储系统配置。
         final ReadConfiguration globalConfig = new ReadConfigurationBuilder().buildGlobalConfiguration(
             localConfig, localBasicConfiguration, overwrite, storeManager,
             new ModifiableConfigurationBuilder(), new KCVSConfigurationBuilder());
@@ -58,9 +62,10 @@ public class GraphDatabaseConfigurationBuilder {
         ModifiableConfiguration localConfiguration = new ModifiableConfiguration(ROOT_NS, new CommonsConfiguration(), BasicConfiguration.Restriction.LOCAL);
         localConfiguration.setAll(getLocalSubset(localBasicConfiguration.getAll()));
 
+        //混合了全局配置与自己指定的配置
         Configuration combinedConfig = new MixedConfiguration(ROOT_NS,globalConfig,localConfig);
 
-        //Compute unique instance id
+        //Compute unique instance id 计算实例id
         String uniqueGraphId = UniqueInstanceIdRetriever.getInstance().getOrGenerateUniqueInstanceId(combinedConfig);
         overwrite.set(UNIQUE_INSTANCE_ID, uniqueGraphId);
 
@@ -69,6 +74,7 @@ public class GraphDatabaseConfigurationBuilder {
 
         MergedConfiguration configuration = new MergedConfiguration(overwrite,combinedConfig);
 
+        //返回的配置类，有各个配置文件信息，实例id，globalConfig（KCVSConfiguration） 包括了storageManager和KeyColumnValueStore 两个大存储。
         return new GraphDatabaseConfiguration(localConfig, localConfiguration, uniqueGraphId, configuration);
     }
 

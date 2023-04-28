@@ -21,6 +21,8 @@ import org.apache.tinkerpop.gremlin.structure.Direction;
 import java.util.*;
 
 /**
+ * 这个对应了edge列簇下的cell的解析值，可能是边 也可能是属性 ， 边的话，other存储targerId，属性话存储的属性值。
+ *
  * Immutable map from long key ids to objects.
  * Implemented for memory and time efficiency.
  *

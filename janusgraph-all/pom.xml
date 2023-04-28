@@ -32,22 +32,32 @@
             <groupId>org.janusgraph</groupId>
             <artifactId>janusgraph-server</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.janusgraph</groupId>
+                    <artifactId>janusgraph-test</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.cassandra</groupId>
+                    <artifactId>cassandra-all</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
-        <dependency>
-            <groupId>org.janusgraph</groupId>
-            <artifactId>janusgraph-cassandra</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-      <dependency>
-        <groupId>org.janusgraph</groupId>
-        <artifactId>janusgraph-cql</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-        <dependency>
-            <groupId>org.janusgraph</groupId>
-            <artifactId>janusgraph-berkeleyje</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.janusgraph</groupId>-->
+<!--            <artifactId>janusgraph-cassandra</artifactId>-->
+<!--            <version>${project.version}</version>-->
+<!--        </dependency>-->
+<!--      <dependency>-->
+<!--        <groupId>org.janusgraph</groupId>-->
+<!--        <artifactId>janusgraph-cql</artifactId>-->
+<!--        <version>${project.version}</version>-->
+<!--      </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>org.janusgraph</groupId>-->
+<!--            <artifactId>janusgraph-berkeleyje</artifactId>-->
+<!--            <version>${project.version}</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>org.janusgraph</groupId>
             <artifactId>janusgraph-hbase</artifactId>

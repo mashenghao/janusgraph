@@ -95,14 +95,14 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
     private static final Logger log =
             LoggerFactory.getLogger(StandardJanusGraph.class);
 
-
+    //注册了自己图的优化策略，janusgraph对Graph接口的实现由两个类，StandardJanusGraph 和 StandardJanusGraphTx
     static {
         TraversalStrategies graphStrategies = TraversalStrategies.GlobalCache.getStrategies(Graph.class).clone()
                 .addStrategies(AdjacentVertexFilterOptimizerStrategy.instance(),
                     JanusGraphLocalQueryOptimizerStrategy.instance(), JanusGraphStepStrategy.instance(),
                     JanusGraphIoRegistrationStrategy.instance());
 
-        //Register with cache
+        //Register with cache ，除了Graph的优化策略外，还将自己的四个优化策略加了进去，这是优化策略放到了jvm的GlobalCache中的静态map中了。
         TraversalStrategies.GlobalCache.registerStrategies(StandardJanusGraph.class, graphStrategies);
         TraversalStrategies.GlobalCache.registerStrategies(StandardJanusGraphTx.class, graphStrategies);
     }
@@ -119,7 +119,9 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
     protected final Serializer serializer;
 
     //Caches
+    //点是否存在的属性查询条件。
     public final SliceQuery vertexExistenceQuery;
+
     private final RelationQueryCache queryCache;
     private final SchemaCache schemaCache;
 
@@ -132,13 +134,23 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
     private volatile boolean isOpen;
     private final AtomicLong txCounter;
 
-    private final Set<StandardJanusGraphTx> openTransactions;
+    //org.janusgraph.graphdb.tinkerpop.JanusGraphBlueprintsGraph.txs 中的属性，是与线程绑定的，用于根据线程获取到对应的事务。
+    private final Set<StandardJanusGraphTx> openTransactions; //记录已经打开过的事务。不需要执行获取。
 
     private final String name;
 
     public StandardJanusGraph(GraphDatabaseConfiguration configuration) {
 
         this.config = configuration;
+
+        //backend 是个很多的操作。
+        //1.创建了StorageManager，与配置类中初始化的不是同一个。 （如果后端存储支持锁，包装这个manager，使其创建store的时候，创建带锁的store。）
+        //2. 获取后端存储索引的实现类， 这个未知 。
+        //3.创建了三个KCVSLogManager,分别是janusgraph，tx，user。
+        //4.idStore ，edgeStore，indexStore 打开，如果支持锁，也会打开一个name_lock_ 的store。
+        //5. 如果db缓存开启，包装一层store，查询前，先查询缓存。
+        //6.又打开了配置用的store
+        ////// 总的逻辑就是，打开存储用的store，如果store配置了支持锁，支持缓存，在进行扩展配置。
         this.backend = configuration.getBackend();
 
         this.name = configuration.getGraphName();
@@ -151,6 +163,7 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
         this.indexSerializer = new IndexSerializer(configuration.getConfiguration(), this.serializer,
                 this.backend.getIndexInformation(), storeFeatures.isDistributed() && storeFeatures.isKeyOrdered());
         this.edgeSerializer = new EdgeSerializer(this.serializer);
+        //校验点是否存在，通过查找点上的属性BaseKey.VertexExists
         this.vertexExistenceQuery = edgeSerializer.getQuery(BaseKey.VertexExists, Direction.OUT, new EdgeSerializer.TypedInterval[0]).setLimit(1);
         this.queryCache = new RelationQueryCache(this.edgeSerializer);
         this.schemaCache = configuration.getTypeCache(typeCacheRetrieval);
@@ -170,9 +183,10 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
         } else if (instanceExists && replaceExistingInstance) {
             log.debug(String.format("Instance [%s] already exists. Opening the graph per " + REPLACE_INSTANCE_IF_EXISTS.getName() + " configuration.", uniqueInstanceId));
         }
+        //将当前图实例唯一编号，写入到图库配置中。
         globalConfig.set(REGISTRATION_TIME, times.getTime(), uniqueInstanceId);
 
-        Log managementLog = backend.getSystemMgmtLog();
+        Log managementLog = backend.getSystemMgmtLog(); //获取到systemlog的store
         managementLogger = new ManagementLogger(this, managementLog, schemaCache, this.times);
         managementLog.registerReader(ReadMarker.fromNow(), managementLogger);
 
@@ -245,6 +259,7 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
             //Unregister instance
             String uniqueId = null;
             try {
+                //关闭图实例，去图配置中移除实例。
                 uniqueId = config.getUniqueGraphId();
                 ModifiableConfiguration globalConfig = getGlobalSystemConfig(backend);
                 globalConfig.remove(REGISTRATION_TIME, uniqueId);
@@ -357,26 +372,30 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
 
     // ################### TRANSACTIONS #########################
 
+    //线程无关的事务对象。
     @Override
     public JanusGraphTransaction newTransaction() {
-        return buildTransaction().start();
+        return buildTransaction().start();//这是不与线程绑定的事务对象。
     }
 
+    //返回一个事务构建者
     @Override
     public StandardTransactionBuilder buildTransaction() {
         return new StandardTransactionBuilder(getConfiguration(), this);
     }
 
+    //绑定到线程上的事务对象
     @Override
     public JanusGraphTransaction newThreadBoundTransaction() {
-        return buildTransaction().threadBound().start();
+        return buildTransaction().threadBound().start();//这个是线程绑定的事务对象。
     }
 
+    //[tx] 最终创建一个事务的方法，都是调用到这儿。
     public StandardJanusGraphTx newTransaction(final TransactionConfiguration configuration) {
         if (!isOpen) ExceptionFactory.graphShutdown();
         try {
             StandardJanusGraphTx tx = new StandardJanusGraphTx(this, configuration);
-            tx.setBackendTransaction(openBackendTransaction(tx));
+            tx.setBackendTransaction(openBackendTransaction(tx)); //这里打开了存储层的事务，设置到了tinkerpop提供的线程类中去了。
             openTransactions.add(tx);
             return tx;
         } catch (BackendException e) {
@@ -394,7 +413,7 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
     }
 
     // ################### READ #########################
-
+    //用来获取schema用的，也是用来缓存用的。
     private final SchemaCache.StoreRetrieval typeCacheRetrieval = new SchemaCache.StoreRetrieval() {
 
         @Override
@@ -466,6 +485,14 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
         };
     }
 
+    /**
+     * 根据点id，查找边集合。
+     *
+     * @param vid
+     * @param query
+     * @param tx
+     * @return
+     */
     public EntryList edgeQuery(long vid, SliceQuery query, BackendTransaction tx) {
         Preconditions.checkArgument(vid > 0);
         return tx.edgeStoreQuery(new KeySliceQuery(idManager.getKey(vid), query));
@@ -475,9 +502,9 @@ public class StandardJanusGraph extends JanusGraphBlueprintsGraph {
         Preconditions.checkArgument(vertexIdsAsLongs != null && !vertexIdsAsLongs.isEmpty());
         final List<StaticBuffer> vertexIds = new ArrayList<>(vertexIdsAsLongs.size());
         for (int i = 0; i < vertexIdsAsLongs.size(); i++) {
-            Preconditions.checkArgument(vertexIdsAsLongs.get(i) > 0);
+             Preconditions.checkArgument(vertexIdsAsLongs.get(i) > 0);
             vertexIds.add(idManager.getKey(vertexIdsAsLongs.get(i)));
-        }
+        }//这个map，返回的是一个点id，对应的查询出的结果。EntryList是查询出的结果(EntryList是一个存储了columnKV的k和v，用字节偏移量记录)
         final Map<StaticBuffer,EntryList> result = tx.edgeStoreMultiQuery(vertexIds, query);
         final List<EntryList> resultList = new ArrayList<>(result.size());
         for (StaticBuffer v : vertexIds) resultList.add(result.get(v));

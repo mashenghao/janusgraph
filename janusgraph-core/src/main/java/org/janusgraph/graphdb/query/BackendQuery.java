@@ -15,6 +15,7 @@
 package org.janusgraph.graphdb.query;
 
 /**
+ * 返回一个新的查询。
  * A BackendQuery is a query that can be updated to a new limit.
  * <p>
  * This is useful in query execution where the query limit is successively relaxed to find all the needed elements
@@ -26,7 +27,7 @@ public interface BackendQuery<Q extends BackendQuery> extends Query {
 
     /**
      * Creates a new query identical to the current one but with the specified limit.
-     *
+     * 创建一个和当前相同的查询，查询个数限制变了。
      * @param newLimit
      * @return
      */

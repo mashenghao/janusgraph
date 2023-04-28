@@ -19,6 +19,11 @@ import org.apache.tinkerpop.gremlin.process.traversal.Order;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 
 /**
+ * **这是以顶点为中心的建立的局部索引**
+ * 在大型图中，顶点可以有数千条关联边。遍历这些顶点可能非常慢，因为必须检索大量的入射边子集，
+ * 然后在内存中进行过滤，以匹配遍历的条件。以顶点为中心的索引可以通过使用本地化索引结构来只检索需要遍历的那些边来加快这种遍历。
+ *
+ * 边的索引，是点中心索引，是建立一个点的所有边建立索引，加速这个点上的边查找。 可以通过边标签 边属性方式建立索引，也可以构建propertyIndex索引。
  * A RelationTypeIndex is an index installed on a {@link RelationType} to speed up vertex-centric indexes for that type.
  * A RelationTypeIndex is created via
  * {@link JanusGraphManagement#buildEdgeIndex(org.janusgraph.core.EdgeLabel, String, org.apache.tinkerpop.gremlin.structure.Direction, org.apache.tinkerpop.gremlin.process.traversal.Order, org.janusgraph.core.PropertyKey...)}

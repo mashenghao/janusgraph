@@ -16,7 +16,7 @@ package org.janusgraph.graphdb.query;
 
 /**
  * Standard Query interface specifying that a query may have a limit.
- *
+ * 指定查询可能有限制的标准查询接口。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public interface Query {

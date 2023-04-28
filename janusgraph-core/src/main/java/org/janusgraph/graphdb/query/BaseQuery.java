@@ -16,7 +16,7 @@ package org.janusgraph.graphdb.query;
 
 /**
  * Standard implementation of {@link Query}.
- *
+ *标准实现。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public class BaseQuery implements Query {

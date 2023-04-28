@@ -324,7 +324,7 @@ public class StaticArrayEntryList extends AbstractList<Entry> implements EntryLi
             return Boolean.TRUE;
         }
     }
-
+    //将后端存储的字节值，根绝schema转为值。。
     public static <E> EntryList ofBytes(Iterable<E> elements, StaticArrayEntry.GetColVal<E,byte[]> getter) {
         return of(elements, getter, StaticArrayEntry.ByteArrayHandler.INSTANCE);
     }

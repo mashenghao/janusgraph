@@ -30,10 +30,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 /**
+ *接口提供方法去定义，更新和检查janusgraph的图，实现了SchemaManager的接口，可以用来创建SchemaType。
  * The JanusGraphManagement interface provides methods to define, update, and inspect the schema of a JanusGraph graph.
+ * 持有事务对象，可以在操作schema时使用。
  * It wraps a {@link JanusGraphTransaction} and therefore copies many of its methods as they relate to schema inspection
  * and definition.
+ *
  * <p>
+ * 操作schema必须明确的调用事务的提交或者回滚方法，事务被打开，通过janusGraph的openManager方法。
  * JanusGraphManagement behaves like a transaction in that it opens a transactional scope for reading the schema and making
  * changes to it. As such, it needs to be explicitly closed via its {@link #commit()} or {@link #rollback()} methods.
  * A JanusGraphManagement transaction is opened on a graph via {@link org.janusgraph.core.JanusGraph#openManagement()}.
@@ -41,8 +45,8 @@ import java.util.concurrent.Future;
  * JanusGraphManagement provides methods to:
  * <ul>
  * <li>Schema Types: View, update, and create vertex labels, edge labels, and property keys</li>
- * <li>Relation Type Index: View and create vertex-centric indexes on edge labels and property keys</li>
- * <li>Graph Index: View and create graph-wide indexes for efficient element retrieval</li>
+ * <li>Relation Type Index: View and create vertex-centric indexes on edge labels and property keys</li> 根据边标签和属性key创建关系索引。
+ * <li>Graph Index: View and create graph-wide indexes for efficient element retrieval</li> 全图索引，存储点的id。
  * <li>Consistency Management: Set the consistency level of individual schema elements</li>
  * </ul>
  *
@@ -55,6 +59,7 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
      */
 
     /**
+     * 创建边的索引，通过指定边的标签和指向，属性key。
      * Identical to {@link #buildEdgeIndex(org.janusgraph.core.EdgeLabel, String, org.apache.tinkerpop.gremlin.structure.Direction, org.apache.tinkerpop.gremlin.process.traversal.Order, org.janusgraph.core.PropertyKey...)}
      * with default sort order {@link org.apache.tinkerpop.gremlin.process.traversal.Order#asc}.
      *
@@ -67,9 +72,12 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
     RelationTypeIndex buildEdgeIndex(EdgeLabel label, String name, Direction direction, PropertyKey... sortKeys);
 
     /**
+     * 只为某一类型的边label上的PropertyKey创建索引.
+     *
      * Creates a {@link RelationTypeIndex} for the provided edge label. That means, that all edges of that label will be
      * indexed according to this index definition which will speed up certain vertex-centric queries.
-     * <p>
+     * <p> 加快某些以顶点为中心的查询。
+     * 边索引定义通过name，指向
      * An indexed is defined by its name, the direction in which the index should be created (can be restricted to one
      * direction or both), the sort order and - most importantly - the sort keys which define the index key.
      *
@@ -94,10 +102,12 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
     RelationTypeIndex buildPropertyIndex(PropertyKey key, String name, PropertyKey... sortKeys);
 
     /**
+     * 为PropertyKey创建边索引，
+     *
      * Creates a {@link RelationTypeIndex} for the provided property key. That means, that all properties of that key will be
      * indexed according to this index definition which will speed up certain vertex-centric queries.
      * <p>
-     * An indexed is defined by its name, the sort order and - most importantly - the sort keys which define the index key.
+     * An indexed is defined by its name, the sort order and - most importantly(重要) - the sort keys which define the index key.
      *
      * @param key
      * @param name
@@ -119,7 +129,7 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
     /**
      * Returns the {@link RelationTypeIndex} with the given name for the provided {@link RelationType} or null
      * if it does not exist
-     *
+     * 返回为RelationType创建的name索引。
      * @param type
      * @param name
      * @return
@@ -127,6 +137,7 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
     RelationTypeIndex getRelationIndex(RelationType type, String name);
 
     /**
+     * 返回RelationType上，创建的所有索引。
      * Returns an {@link Iterable} over all {@link RelationTypeIndex}es defined for the provided {@link RelationType}
      *
      * @param type
@@ -157,13 +168,14 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
 
     /**
      * Returns all graph indexes that index the given element type.
-     *
+     * 返回点或者边schema上的全图索引。
      * @param elementType
      * @return
      */
     Iterable<JanusGraphIndex> getGraphIndexes(final Class<? extends Element> elementType);
 
     /**
+     * 返回了一个索引构建器。 为点或者边构建索引。
      * Returns an {@link IndexBuilder} to add a graph index to this JanusGraph graph. The index to-be-created
      * has the provided name and indexes elements of the given type.
      *
@@ -199,6 +211,7 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
         IndexBuilder addKey(PropertyKey key, Parameter... parameters);
 
         /**
+         * 索引只存储某一SchemaType类型的点或者边。
          * Restricts this index to only those elements that have the provided schemaType. If this graph index indexes
          * vertices, then the argument is expected to be a vertex label and only vertices with that label will be indexed.
          * Likewise, for edges and properties only those with the matching relation type will be indexed.
@@ -260,11 +273,12 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
         ScanMetrics getIntermediateResult() throws ExecutionException;
     }
 
-    /*
+    /*一致性设置。
     ##################### CONSISTENCY SETTING ##########################
      */
 
     /**
+     * 检索元素给的一致性修饰符，如果没有，则是默认 的。
      * Retrieves the consistency modifier for the given {@link JanusGraphSchemaElement}. If none has been explicitly
      * defined, {@link ConsistencyModifier#DEFAULT} is returned.
      *
@@ -274,6 +288,7 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
     ConsistencyModifier getConsistency(JanusGraphSchemaElement element);
 
     /**
+     * 设置元素的一致性级别。
      * Sets the consistency modifier for the given {@link JanusGraphSchemaElement}. Note, that only {@link RelationType}s
      * and composite graph indexes allow changing of the consistency level.
      *
@@ -285,7 +300,7 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
     /**
      * Retrieves the time-to-live for the given {@link JanusGraphSchemaType} as a {@link Duration}.
      * If no TTL has been defined, the returned Duration will be zero-length ("lives forever").
-     *
+     * 约束类型设置失效时间。
      * @param type
      * @return
      */
@@ -302,6 +317,8 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
      */
     void setTTL(JanusGraphSchemaType type, Duration duration);
 
+
+    //约束操作
     /*
     ##################### SCHEMA UPDATE ##########################
      */
@@ -317,7 +334,7 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
 
     /**
      * Updates the provided index according to the given {@link SchemaAction}
-     *
+     * 索引操作，见缩索引的生命周期。
      * @param index
      * @param updateAction
      * @return a future that completes when the index action is done
@@ -335,18 +352,21 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
     IndexJobFuture getIndexJobStatus(Index index);
 
     /*
+    集群管理
     ##################### CLUSTER MANAGEMENT ##########################
      */
 
     /**
      * Returns a set of unique instance ids for all JanusGraph instances that are currently
      * part of this graph cluster.
+     * 返回当前图，在其他机器上打开的实例编号。
      *
      * @return
      */
     Set<String> getOpenInstances();
 
     /**
+     * 关闭图实例，根据实例id。 可以关闭其他机器上的图实例。
      * Forcefully removes a JanusGraph instance from this graph cluster as identified by its name.
      * <p>
      * This method should be used with great care and only in cases where a JanusGraph instance
@@ -375,7 +395,7 @@ public interface JanusGraphManagement extends JanusGraphConfiguration, SchemaMan
 
     /**
      * Returns an {@link Iterable} over all defined {@link VertexLabel}s.
-     *
+     * 返回所有的vertexLabel。
      * @return
      */
     Iterable<VertexLabel> getVertexLabels();

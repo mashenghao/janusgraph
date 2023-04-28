@@ -26,6 +26,8 @@ import org.janusgraph.graphdb.query.profile.QueryProfiler;
 import java.util.List;
 
 /**
+ *  * 用于构造{@link VertexCentricQuery} 用的。 hbase查询用的。
+ *
  * Implementation of {@link JanusGraphVertexQuery} that extends {@link BasicVertexCentricQueryBuilder}
  * for all the query building and optimization and adds only the execution logic in
  * {@link #constructQuery(org.janusgraph.graphdb.internal.RelationCategory)}. However, there is
@@ -65,8 +67,11 @@ public class VertexCentricQueryBuilder extends BasicVertexCentricQueryBuilder<Ve
 	 */
 
     protected<Q> Q execute(RelationCategory returnType, ResultConstructor<Q> resultConstructor) {
+        //这里转换成了hbase 语义层查询。BaseVertexCentricQuery 将图语义层查询转为hbase 这种kv查询。
         BaseVertexCentricQuery bq = super.constructQuery(returnType);
-        if (bq.isEmpty()) return resultConstructor.emptyResult();
+        if (bq.isEmpty())
+            return resultConstructor.emptyResult();
+
         if (returnType==RelationCategory.PROPERTY && hasSingleType() && !hasQueryOnlyLoaded()
                 && tx.getConfiguration().hasPropertyPrefetching()) {
             //Preload properties

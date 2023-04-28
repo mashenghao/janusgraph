@@ -38,12 +38,14 @@ public class BaseKey extends BaseRelationType implements PropertyKey {
     private enum Index { NONE, STANDARD, UNIQUE }
 
     //We rely on the vertex-existence property to be the smallest (in byte-order) when iterating over the entire graph
+    //点的内置属性类型，用于校验点是否存在。
     public static final BaseKey VertexExists =
             new BaseKey("VertexExists", Boolean.class, 1, Index.NONE, Cardinality.SINGLE);
 
     public static final BaseKey SchemaName =
             new BaseKey("SchemaName", String.class, 32, Index.UNIQUE, Cardinality.SINGLE);
 
+    //schema图节点中，存储用户定义的schema具体指的key。
     public static final BaseKey SchemaDefinitionProperty =
             new BaseKey("SchemaDefinitionProperty", Object.class, 33, Index.NONE, Cardinality.LIST);
 
@@ -196,5 +198,6 @@ public class BaseKey extends BaseRelationType implements PropertyKey {
 
         //Use default hashcode and equals
     };
+
 
 }

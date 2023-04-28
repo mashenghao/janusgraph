@@ -56,6 +56,7 @@ public class HBaseBinaryRecordReader  extends RecordReader<StaticBuffer, Iterabl
         return StaticArrayBuffer.of(reader.getCurrentKey().copyBytes());
     }
 
+    //与Hbase自带的TableInputFormat不同的就是这里获取的结果进行一次列簇的过滤与转换。
     @Override
     public Iterable<Entry> getCurrentValue() throws IOException, InterruptedException {
         return new HBaseMapIterable(reader.getCurrentValue().getMap().get(edgestoreFamilyBytes));

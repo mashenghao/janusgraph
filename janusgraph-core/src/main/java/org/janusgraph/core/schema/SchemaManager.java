@@ -19,6 +19,12 @@ import org.janusgraph.core.PropertyKey;
 import org.janusgraph.core.VertexLabel;
 
 /**
+ * 用来创建 创建vertexLabel/RealatioType 的构造器Maker用的。
+ *
+ * 也用于一些schema增删的辅助方法，比如为VertexLabel/EdgeLabel 添加属性约束
+ * 给边label 添加那些顶点label可以进行连接。
+ *
+ *
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public interface SchemaManager extends SchemaInspector {

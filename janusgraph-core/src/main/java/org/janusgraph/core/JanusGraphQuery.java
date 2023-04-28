@@ -18,6 +18,9 @@ import org.janusgraph.graphdb.query.JanusGraphPredicate;
 import org.apache.tinkerpop.gremlin.process.traversal.Order;
 
 /**
+ *
+ * 构造一个基于索引可以查询全图中的数据的查询实例。 不同于JanusGrapVertexhQuery，这个是基于点中心去查的。
+ *
  * Constructs a query against a mixed index to retrieve all elements (either vertices or edges)
  * that match all conditions.
  * <p>

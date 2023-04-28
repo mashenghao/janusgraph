@@ -221,9 +221,9 @@ public abstract class AbstractLocker<S extends LockStatus> implements Locker {
     }
 
     public AbstractLocker(StaticBuffer rid, TimestampProvider times,
-            ConsistentKeyLockerSerializer serializer,
-            LocalLockMediator<StoreTransaction> llm, LockerState<S> lockState,
-            Duration lockExpire, Logger log) {
+                          ConsistentKeyLockerSerializer serializer,
+                          LocalLockMediator<StoreTransaction> llm, LockerState<S> lockState,
+                          Duration lockExpire, Logger log) {
         this.rid = rid;
         this.times = times;
         this.serializer = serializer;
@@ -234,6 +234,8 @@ public abstract class AbstractLocker<S extends LockStatus> implements Locker {
     }
 
     /**
+     * 对单个lockId加分布式锁，事务是tx
+     *
      * Try to take/acquire/write/claim a lock uniquely identified within this
      * {@code Locker} by the {@code lockID} argument on behalf of {@code tx}.
      *
@@ -286,6 +288,7 @@ public abstract class AbstractLocker<S extends LockStatus> implements Locker {
      */
     protected abstract void deleteSingleLock(KeyColumn lockID, S lockStatus, StoreTransaction tx) throws Throwable;
 
+    //写入本地锁
     @Override
     public void writeLock(KeyColumn lockID, StoreTransaction tx) throws TemporaryLockingException, PermanentLockingException {
 
@@ -293,29 +296,50 @@ public abstract class AbstractLocker<S extends LockStatus> implements Locker {
             MetricManager.INSTANCE.getCounter(tx.getConfiguration().getGroupName(), M_LOCKS, M_WRITE, M_CALLS).inc();
         }
 
+        // 判断当前事务是否在图实例的维度 已经占据了lockID的锁
+        // 此处的lockState在一个事务成功获取本地锁+分布式锁后，
+        // 以事务为key、value为map，
+        // 其中key为lockID，value为加锁状态（开始时间、过期时间等）
+        // 从lockstate的map中开当前事务对象锁住了那些lockId，是否有当前lockId，有的话，结束了。
         if (lockState.has(tx, lockID)) {
             log.debug("Transaction {} already wrote lock on {}", tx, lockID);
             return;
         }
 
+        //获取本地锁
+       // 用 LocalLockMediator类实现本地锁的获取， 主要实现是用一个map，key是lockID，value是(事务对象与失效时间),
+        //用putIfAbsent()方法，cas进行加锁判断，当成功向map中插入记录，则认为加本地锁成功
         if (lockLocally(lockID, tx)) {
             boolean ok = false;
             try {
+
+                //本地锁 成功后，加基于hbase的分布式锁。
+                // 注意！！！（此处的获取锁只是将对应的KLV存储到Hbase中！存储成功并不代表获取锁成功）
                 S stat = writeSingleLock(lockID, tx);
+
+                // 获取锁分布式锁成功后（即写入成功后），更新本地锁的过期时间为分布式锁的过期时间，由走了一遍本地加锁。
                 lockLocally(lockID, stat.getExpirationTimestamp(), tx); // update local lock expiration time
+
+                // 将上述获取的锁，存储在标识当前存在锁的集合中Map<tx,Map<lockID,S>>，
+                // key为事务、value中的map为当前事务获取的锁，
+                //      key为lockID，value为当前获取分布式锁的ConsistentKeyStatus（一致性密匙状态）对象
                 lockState.take(tx, lockID, stat);
+
                 ok = true;
             } catch (TemporaryBackendException tse) {
+                // 在获取分布式锁失败后，捕获该异常，并抛出该异常，这照片那个情况下可以重试
                 throw new TemporaryLockingException(tse);
             } catch (AssertionError ae) {
                 // Concession to ease testing with mocks & behavior verification
                 ok = true;
                 throw ae;
             } catch (Throwable t) {
+                // 在获取分布式锁失败后，捕获该异常，并抛出该异常
                 throw new PermanentLockingException(t);
             } finally {
+                // 判断是否成功获取锁，没有获分布式锁的，则释放本地锁
                 if (!ok) {
-                    // lockState.release(tx, lockID); // has no effect
+                    // lockState.release(tx, lockID); // has no effect  // 没有成功获取锁，则释放本地锁
                     unlockLocally(lockID, tx);
                     if (null != tx.getConfiguration().getGroupName()) {
                         MetricManager.INSTANCE.getCounter(tx.getConfiguration().getGroupName(), M_LOCKS, M_WRITE, M_EXCEPTIONS).inc();
@@ -323,11 +347,13 @@ public abstract class AbstractLocker<S extends LockStatus> implements Locker {
                 }
             }
         } else {
+            // 如果获取本地锁失败，则直接抛出异常，不进行重新本地争用
             // Fail immediately with no retries on local contention
             throw new PermanentLockingException("Local lock contention");
         }
     }
 
+    //校验当前事务是否有锁
     @Override
     public void checkLocks(StoreTransaction tx) throws TemporaryLockingException, PermanentLockingException {
 
@@ -335,6 +361,7 @@ public abstract class AbstractLocker<S extends LockStatus> implements Locker {
             MetricManager.INSTANCE.getCounter(tx.getConfiguration().getGroupName(), M_LOCKS, M_CHECK, M_CALLS).inc();
         }
 
+        //开启事务，但未对任何记录加锁。 获取到当前事务写入到hbase中的记录，判断这些记录是否都是成功的获取到分布式锁了。
         Map<KeyColumn, S> m = lockState.getLocksForTx(tx);
 
         if (m.isEmpty()) {
@@ -348,6 +375,8 @@ public abstract class AbstractLocker<S extends LockStatus> implements Locker {
         boolean ok = false;
         try {
             for (final Map.Entry<KeyColumn, S> entry : m.entrySet()) {
+
+                //校验是否持有分布式锁。
                 checkSingleLock(entry.getKey(), entry.getValue(), tx);
             }
             ok = true;

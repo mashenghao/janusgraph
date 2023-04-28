@@ -22,6 +22,7 @@ import org.janusgraph.core.schema.SchemaStatus;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 
 /**
+ * 这里面涉及到了存储用的一些约束，比如定义sortKey和getSignature
  * Internal Type interface adding methods that should only be used by JanusGraph
  *
  * @author Matthias Broecheler (me@matthiasb.com)

@@ -317,11 +317,17 @@ public class ConsistentKeyLocker extends AbstractLocker<ConsistentKeyLockStatus>
     @Override
     protected ConsistentKeyLockStatus writeSingleLock(KeyColumn lockID, StoreTransaction txh) throws Throwable {
 
+        // 组成成hbase的rowkey, 是有rowkey + column作为一个分布式锁的唯一标识。
         final StaticBuffer lockKey = serializer.toLockKey(lockID.getKey(), lockID.getColumn());
+
         StaticBuffer oldLockCol = null;
 
+        //分布式锁，加锁尝试次数为3次。
         for (int i = 0; i < lockRetryCount; i++) {
+            //尝试hbase写入锁记录，oldLockCol为上次重试记录。 就是想hbaase写入一条记录，rowkey = lockId（点的rowkey + column）,
+            //column是当前时间+进程id。
             WriteResult wr = tryWriteLockOnce(lockKey, oldLockCol, txh);
+            //写入成功了，返回写入成功对象。
             if (wr.isSuccessful() && wr.getDuration().compareTo(lockWait) <= 0) {
                 final Instant writeInstant = wr.getWriteTimestamp();
                 final Instant expireInstant = writeInstant.plus(lockExpire);
@@ -380,10 +386,13 @@ public class ConsistentKeyLocker extends AbstractLocker<ConsistentKeyLockStatus>
     private WriteResult tryWriteLockOnce(StaticBuffer key, StaticBuffer del, StoreTransaction txh) {
         Throwable t = null;
         final Timer writeTimer = times.getTimer().start();
+        //由时间戳 + 进程号(实例唯一) 组成column。
         StaticBuffer newLockCol = serializer.toLockCol(writeTimer.getStartTime(), rid, times);
-        Entry newLockEntry = StaticArrayEntry.of(newLockCol, zeroBuf);
+        Entry newLockEntry = StaticArrayEntry.of(newLockCol, zeroBuf); //值是空的。
         try {
             final StoreTransaction newTx = overrideTimestamp(txh, writeTimer.getStartTime());
+
+            //就是调用hbase的api 去写入那些数据，删除那些column，这里写入的是为lockId添加一个列，标记当前机器的colum， 删除的是上次重试的记录。
             store.mutate(key, Collections.singletonList(newLockEntry),
                 null == del ? KeyColumnValueStore.NO_DELETIONS : Collections.singletonList(del), newTx);
         } catch (BackendException e) {
@@ -423,6 +432,8 @@ public class ConsistentKeyLocker extends AbstractLocker<ConsistentKeyLockStatus>
         // Slice the store
         KeySliceQuery ksq = new KeySliceQuery(serializer.toLockKey(kc.getKey(), kc.getColumn()), LOCK_COL_START,
             LOCK_COL_END);
+
+        // 此处从hbase中查询出锁定的行的所有列！ 默认查询重试次数3
         List<Entry> claimEntries = getSliceWithRetries(ksq, tx);
 
         // Extract timestamp and rid from the column in each returned Entry...
@@ -438,7 +449,7 @@ public class ConsistentKeyLocker extends AbstractLocker<ConsistentKeyLockStatus>
                 if (null != cleanerService)
                     cleanerService.clean(kc, cutoffTime, tx);
                 // Locks that this instance wrote that have now expired should not only log
-                // but also throw a descriptive exception
+                // but also throw a descriptive exception，锁失效，异常。
                 if (rid.equals(tr.getRid()) && ls.getWriteTimestamp().equals(tr.getTimestamp())) {
                     throw new ExpiredLockException("Expired lock on " + kc.toString() +
                             ": lock timestamp " + tr.getTimestamp() + " " + times.getUnit() + " is older than " +
@@ -451,6 +462,8 @@ public class ConsistentKeyLocker extends AbstractLocker<ConsistentKeyLockStatus>
             unexpiredTRs.add(tr);
         }
 
+        // 判断当前tx是否成功持有锁！ 如果我们插入的列是读取的第一个列，或者前面的列只包含我们自己的rid（因为我们是在第一部分的前提下获取的锁，第一部分我们成功获取了基于当前进程的锁，所以如果rid相同，代表着我们也成功获取到了当前的分布式锁），那么我们持有锁。否则，另一个进程持有该锁，我们无法获得锁
+        // 如果，获取锁失败，抛出TemporaryLockingException异常！！！！ 抛出到顶层的mutator.commitStorage()处，最终导入失败进行事务回滚等操作
         checkSeniority(kc, ls, unexpiredTRs);
         ls.setChecked();
     }
@@ -478,6 +491,7 @@ public class ConsistentKeyLocker extends AbstractLocker<ConsistentKeyLockStatus>
 
         int trCount = 0;
 
+        //TODO: ?? columns应该是时间从小到大排序的，不是hbase那种从大到小，时间最早的记录在最上面，标志是第一个加锁的事务。
         for (TimestampRid tr : claimTRs) {
             trCount++;
 

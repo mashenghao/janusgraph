@@ -95,12 +95,26 @@ public class ExpectedValueCheckingStore extends KCVSProxy {
     @Override
     public void acquireLock(StaticBuffer key, StaticBuffer column, StaticBuffer expectedValue, StoreTransaction txh) throws BackendException {
         if (locker != null) {
+            // 获取当前事务对象
             ExpectedValueCheckingTransaction tx = (ExpectedValueCheckingTransaction) txh;
+            // 判断：当前的获取锁操作是否当前事务的操作中存在增删改的操作
             if (tx.isMutationStarted())
                 throw new PermanentLockingException("Attempted to obtain a lock after mutations had been persisted");
+
+            //锁id。
             KeyColumn lockID = new KeyColumn(key, column);
             log.debug("Attempting to acquireLock on {} ev={}", lockID, expectedValue);
+
+            // 获取本地当前jvm进程中的写锁（看下述的 1：写锁获取分析）
+            // （此处的获取锁只是将对应的KLV存储到Hbase中！存储成功并不代表获取锁成功）
+            // 1. 获取成功（等同于存储成功）则继续执行
+            // 2. 获取失败（等同于存储失败），会抛出异常，抛出到最上层，
+            // 打印错误日志“Could not commit transaction ["+transactionId+"] due to exception” 并抛出对应的异常，本次插入数据结束
+            //这里是先获取本地锁成功后，在想HBASE的锁列簇为当lockId的rowkey插入一条记录，column是当前进程id。当并判断当前进程是否是第一个获取到的。
             locker.writeLock(lockID, tx.getConsistentTx());
+            // 执行前提：上述获取锁成功！
+            // 存储期望值，此处为了实现当相同的key + value + tx多个加锁时，只保存了第一次访问的记录，为了比较和hbase中的锁记录是否一个。
+            // 存储在事务对象中，标识在commit判断锁是否获取成功时，当前事务插入的是哪个锁信息。 去看事务的commit()方法。
             tx.storeExpectedValue(this, lockID, expectedValue);
         } else {
             store.acquireLock(key, column, expectedValue, unwrapTx(txh));

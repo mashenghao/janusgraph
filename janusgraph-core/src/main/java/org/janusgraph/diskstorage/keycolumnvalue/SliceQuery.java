@@ -30,9 +30,10 @@ import java.util.List;
 
 
 /**
+ * 查询是有起点(包含)和终点(不含)标识的数据切片。
  * Queries for a slice of data identified by a start point (inclusive) and end point (exclusive).
  * Returns all {@link StaticBuffer}s that lie in this range up to the given limit.
- * <p>
+ * <p> 返回给定范围内所有的StaticBuffer，直到超过限制。
  * If a SliceQuery is marked <i>static</i> it is expected that the result set does not change.
  *
  * @author Matthias Broecheler (me@matthiasb.com)
@@ -132,6 +133,7 @@ public class SliceQuery extends BaseQuery implements BackendQuery<SliceQuery> {
         return this;
     }
 
+    //查询接口
     @Override
     public SliceQuery updateLimit(int newLimit) {
         return new SliceQuery(sliceStart, sliceEnd).setLimit(newLimit);

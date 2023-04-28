@@ -131,10 +131,11 @@ public abstract class OLAPTest extends JanusGraphBaseTest {
             JanusGraphVertex v = vs[i];
             for (int j=0;j<edges;j++) {
                 JanusGraphVertex u = vs[random.nextInt(numV)];
-                v.addEdge("knows", u);
+                v.addEdge("knows", u); //每个点 有uid个出边。
                 numE++;
             }
         }
+        // 1 2 3 4
         assertEquals(numV*(numV+1),numE*2);
         return numE;
     }
@@ -356,11 +357,11 @@ public abstract class OLAPTest extends JanusGraphBaseTest {
         {
             return ImmutableSet.of();
         }
-
+/*
         @Override
         public <P extends WriteBackService> Class<P> getServiceClass() throws ClassNotFoundException {
             return null;
-        }
+        }*/
 
         @Override
         public GraphComputer.ResultGraph getPreferredResultGraph() {
@@ -388,6 +389,7 @@ public abstract class OLAPTest extends JanusGraphBaseTest {
         }
     }
 
+    //统计入度数
     public static class DegreeCounter extends StaticVertexProgram<Integer> {
 
         public static final String DEGREE = "degree";
@@ -412,10 +414,16 @@ public abstract class OLAPTest extends JanusGraphBaseTest {
         @Override
         public void execute(Vertex vertex, Messenger<Integer> messenger, Memory memory) {
             if (memory.isInitialIteration()) {
-                messenger.sendMessage(DEG_MSG, 1);
+                //inE.(outV),
+                messenger.sendMessage(DEG_MSG, 1); //第一次给该计算点所有出点发送消息为1，为了是通知outV,该计算点是他的出度点。
             } else {
+                // 这是第二次迭代计算，聚合的是该计算点的inV的个数，就是从别的点(inV)带你发送的消息，进行聚合。 聚合结果就是点的出度数，
                 int degree = IteratorUtils.stream(messenger.receiveMessages()).reduce(0, (a, b) -> a + b);
                 vertex.property(VertexProperty.Cardinality.single, DEGREE, degree);
+
+                //为了下次循环用。
+                // 如果还有第三次迭代计算，将该点的出度数，发送给该点的inV（发送消息为1的起始计算点）， 之后在进行第三次后，
+                //第三次聚合时，计算点收到了他的每个outV的出度数，将其进行累加操作。
                 if (memory.getIteration()<length) messenger.sendMessage(DEG_MSG, degree);
             }
         }
@@ -446,10 +454,10 @@ public abstract class OLAPTest extends JanusGraphBaseTest {
             else return Collections.emptySet();
         }
 
-        @Override
+/*        @Override
         public <P extends WriteBackService> Class<P> getServiceClass() throws ClassNotFoundException {
             return null;
-        }
+        }*/
 
         // TODO i'm not sure these preferences are correct
 

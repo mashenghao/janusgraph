@@ -68,7 +68,7 @@ import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.*;
 /**
  * Orchestrates and configures all backend systems:
  * The primary backend storage ({@link KeyColumnValueStore}) and all external indexing providers ({@link IndexProvider}).
- *
+ * 这是用来协调和配置后端的存储系统用的，getStorageManager就会根据配置文件初始化一个存储管理器。 存储管理器，提供KeyColumnValueStore的获取。 用于操作后盾查询，操作等。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 
@@ -106,26 +106,26 @@ public class Backend implements LockerProvider, AutoCloseable {
 
     public static final int THREAD_POOL_SIZE_SCALE_FACTOR = 2;
 
-    private final KeyColumnValueStoreManager storeManager;
-    private final KeyColumnValueStoreManager storeManagerLocking;
-    private final StoreFeatures storeFeatures;
+    private final KeyColumnValueStoreManager storeManager; //对一个的是storagManager的实例，可以用来打开数据库底层存储库。
+    private final KeyColumnValueStoreManager storeManagerLocking;// 如果支持锁，这个是包装了的storeManager，调用openStore时，将会打开一个本身store也会打开一个store_locak的库。重写了openStore（）方法。
+    private final StoreFeatures storeFeatures; //存储管理器的存储特性支持
 
     private KCVSCache edgeStore;
     private KCVSCache indexStore;
     private KCVSCache txLogStore;
     private IDAuthority idAuthority;
-    private KCVSConfiguration systemConfig;
-    private KCVSConfiguration userConfig;
+    private KCVSConfiguration systemConfig;//system_store
+    private KCVSConfiguration userConfig; //配置类，store是 system_store
     private boolean hasAttemptedClose;
 
     private final StandardScanner scanner;
 
-    private final KCVSLogManager managementLogManager;
-    private final KCVSLogManager txLogManager;
+    private final KCVSLogManager managementLogManager; //名字叫janusgraph
+    private final KCVSLogManager txLogManager; //名字是 tx
     private final LogManager userLogManager;
 
 
-    private final Map<String, IndexProvider> indexes;
+    private final Map<String, IndexProvider> indexes; //应该是存放第三方索引的
 
     private final int bufferSize;
     private final Duration maxWriteTime;
@@ -133,16 +133,17 @@ public class Backend implements LockerProvider, AutoCloseable {
     private final boolean cacheEnabled;
     private final ExecutorService threadPool;
 
-    private final Function<String, Locker> lockerCreator;
-    private final ConcurrentHashMap<String, Locker> lockers = new ConcurrentHashMap<>();
+    private final Function<String, Locker> lockerCreator; //锁处理的创建者。三种方式，默认的一直锁。CONSISTENT_KEY_LOCKER_CREATOR
+    private final ConcurrentHashMap<String, Locker> lockers = new ConcurrentHashMap<>();//所有的锁store.
 
     private final Configuration configuration;
-
+    //这里Backend实例，实例化后有用的是获取到了存储管理器(getStorageManager()的逻辑),三个 KCVSLogManager分别是janusgraph tx 与 user，这是对store/CF的包装KVCSLog的管理类。 初始化了一个并发锁类，
     public Backend(Configuration configuration) {
         this.configuration = configuration;
 
+        //manager持有所有的配置，并且能打开store/CF.
         KeyColumnValueStoreManager manager = getStorageManager(configuration);
-        if (configuration.get(BASIC_METRICS)) {
+        if (configuration.get(BASIC_METRICS)) { //带监控storagemanager的包装类。
             storeManager = new MetricInstrumentedStoreManager(manager,METRICS_STOREMANAGER_NAME,configuration.get(METRICS_MERGE_STORES),METRICS_MERGED_STORE);
         } else {
             storeManager = manager;
@@ -150,11 +151,12 @@ public class Backend implements LockerProvider, AutoCloseable {
         indexes = getIndexes(configuration);
         storeFeatures = storeManager.getFeatures();
 
-        managementLogManager = getKCVSLogManager(MANAGEMENT_LOG);
-        txLogManager = getKCVSLogManager(TRANSACTION_LOG);
-        userLogManager = getLogManager(USER_LOG);
+        //这里用来获取到了一个KCVSLogManager ，这个是专门用来操作keyColumnStor的日志管理器.一个日志管理器，代表着一个队store/CF的操作类。
+        managementLogManager = getKCVSLogManager(MANAGEMENT_LOG); //kvcsLog名为janusgraph的日志管理器。
+        txLogManager = getKCVSLogManager(TRANSACTION_LOG);//打开名字为tx的日志管理器。
+        userLogManager = getLogManager(USER_LOG); //名字是 user
 
-
+        //db 缓存开启条件，batch关闭，并且db.cache 开启。
         cacheEnabled = !configuration.get(STORAGE_BATCH) && configuration.get(DB_CACHE);
 
         int bufferSizeTmp = configuration.get(BUFFER_SIZE);
@@ -166,14 +168,14 @@ public class Backend implements LockerProvider, AutoCloseable {
         maxWriteTime = configuration.get(STORAGE_WRITE_WAITTIME);
         maxReadTime = configuration.get(STORAGE_READ_WAITTIME);
 
-        if (!storeFeatures.hasLocking()) {
+        if (!storeFeatures.hasLocking()) {//
             Preconditions.checkArgument(storeFeatures.isKeyConsistent(),"Store needs to support some form of locking");
             storeManagerLocking = new ExpectedValueCheckingStoreManager(storeManager,LOCK_STORE_SUFFIX,this,maxReadTime);
         } else {
             storeManagerLocking = storeManager;
         }
-
-        if (configuration.get(PARALLEL_BACKEND_OPS)) {
+        //如果启用，JanusGraph 会尝试使用在整个 JanusGraph 图形数据库实例中共享的固定线程池针对存储后端并行化存储操作,并行化仅适用于某些存储操作，并且在操作受 IO 限制时可能是有益的。
+        if (configuration.get(PARALLEL_BACKEND_OPS)) {//是否应该并行操作后台管理器，
             int poolSize = Runtime.getRuntime().availableProcessors() * THREAD_POOL_SIZE_SCALE_FACTOR;
             threadPool = Executors.newFixedThreadPool(poolSize);
             log.info("Initiated backend operations thread pool of size {}", poolSize);
@@ -193,7 +195,7 @@ public class Backend implements LockerProvider, AutoCloseable {
         // want to maintain the non-null invariant regardless; it will default
         // to consistent-key implementation if none is specified
         Preconditions.checkNotNull(lockerCreator);
-
+        //这个不知道。
         scanner = new StandardScanner(storeManager);
     }
 
@@ -224,7 +226,8 @@ public class Backend implements LockerProvider, AutoCloseable {
      */
     public void initialize(Configuration config) {
         try {
-            //EdgeStore & VertexIndexStore
+            //EdgeStore & VertexIndexStore 打开了两个新的store，一个是存边的，一个是存点索引的。
+            // store的name是 janusgraph_ids 存储的是每个parttion用的id最大值。
             KeyColumnValueStore idStore = storeManager.openDatabase(config.get(IDS_STORE_NAME));
 
             idAuthority = null;
@@ -233,11 +236,11 @@ public class Backend implements LockerProvider, AutoCloseable {
             } else {
                 throw new IllegalStateException("Store needs to support consistent key or transactional operations for ID manager to guarantee proper id allocations");
             }
-
+            //如果支持锁，用锁store包装一层。
             KeyColumnValueStore edgeStoreRaw = storeManagerLocking.openDatabase(EDGESTORE_NAME);
             KeyColumnValueStore indexStoreRaw = storeManagerLocking.openDatabase(INDEXSTORE_NAME);
 
-            //Configure caches
+            //Configure caches  配置缓存用的。 是有对store进行了一次cache包装，在查询store之前，先查询缓存。 在包装一层。
             if (cacheEnabled) {
                 long expirationTime = configuration.get(DB_CACHE_TIME);
                 Preconditions.checkArgument(expirationTime>=0,"Invalid cache expiration time: %s",expirationTime);
@@ -267,13 +270,13 @@ public class Backend implements LockerProvider, AutoCloseable {
                 indexStore = new NoKCVSCache(indexStoreRaw);
             }
 
-            //Just open them so that they are cached
+            //Just open them so that they are cached 打开了两个新的store。
             txLogManager.openLog(SYSTEM_TX_LOG_NAME);
             managementLogManager.openLog(SYSTEM_MGMT_LOG_NAME);
             txLogStore = new NoKCVSCache(storeManager.openDatabase(SYSTEM_TX_LOG_NAME));
 
 
-            //Open global configuration
+            //Open global configuration 打开全局的配置类。
             KeyColumnValueStore systemConfigStore = storeManagerLocking.openDatabase(SYSTEM_PROPERTIES_STORE_NAME);
             KCVSConfigurationBuilder kcvsConfigurationBuilder = new KCVSConfigurationBuilder();
             systemConfig = kcvsConfigurationBuilder.buildGlobalConfiguration(new BackendOperation.TransactionalProvider() {
@@ -384,6 +387,7 @@ public class Backend implements LockerProvider, AutoCloseable {
         return configuration.get(METRICS_MERGE_STORES) ? METRICS_MERGED_CACHE : storeName + METRICS_CACHE_SUFFIX;
     }
 
+    //打开一个日志管理器，传入日志管理器的名字，返回一个实例，
     public KCVSLogManager getKCVSLogManager(String logName) {
         Preconditions.checkArgument(configuration.restrictTo(logName).get(LOG_BACKEND).equalsIgnoreCase(LOG_BACKEND.getDefaultValue()));
         return (KCVSLogManager)getLogManager(logName);
@@ -392,10 +396,10 @@ public class Backend implements LockerProvider, AutoCloseable {
     public LogManager getLogManager(String logName) {
         return getLogManager(configuration, logName, storeManager);
     }
-
+    //创建一个LogManager，只有 KCVSLogManager 针对KeyColumnValueStoreManager的实现。
     private static LogManager getLogManager(Configuration config, String logName, KeyColumnValueStoreManager sm) {
         Configuration logConfig = config.restrictTo(logName);
-        String backend = logConfig.get(LOG_BACKEND);
+        String backend = logConfig.get(LOG_BACKEND);//default
         if (backend.equalsIgnoreCase(LOG_BACKEND.getDefaultValue())) {
             return new KCVSLogManager(sm,logConfig);
         } else {
@@ -407,7 +411,16 @@ public class Backend implements LockerProvider, AutoCloseable {
 
     }
 
+    /**
+     *根据配置主要是storage.backend,从这个类里面获取到org.janusgraph.diskstorage.StandardStoreManager，
+     * 这个存储对应的StoreManager的实现类。
+     * 这个将会触发Storage的初始化操作，对于Hbase的管理器，会获取到hbase的connection。
+     *{@code HBaseStoreManager}
+     * @param storageConfig
+     * @return
+     */
     public static KeyColumnValueStoreManager getStorageManager(Configuration storageConfig) {
+        //根据storage.bakend 获取存储管理器，这里面获取到了hbase的连接了。放在了HbaseStoreManager的ConnectionMask cnx属性中。
         StoreManager manager = getImplementationClass(storageConfig, storageConfig.get(STORAGE_BACKEND),
                 StandardStoreManager.getAllManagerClasses());
         if (manager instanceof OrderedKeyValueStoreManager) {
@@ -609,7 +622,7 @@ public class Backend implements LockerProvider, AutoCloseable {
         public Locker apply(String lockerName) {
             KeyColumnValueStore lockerStore;
             try {
-                lockerStore = storeManager.openDatabase(lockerName);
+                lockerStore = storeManager.openDatabase(lockerName);//打开了一个store，是以storename+_lock_命名的。
             } catch (BackendException e) {
                 throw new JanusGraphConfigurationException("Could not retrieve store named " + lockerName + " for locker configuration", e);
             }

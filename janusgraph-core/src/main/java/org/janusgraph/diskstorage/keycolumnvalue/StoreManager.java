@@ -21,7 +21,8 @@ import java.util.List;
 
 /**
  * Generic interface to a backend storage engine.
- *
+ * StoreManager基类几口，提供事务开启接口与获取该存储管理器的特性；
+ * 有个接口，是返回这个storageManager所在机器管理的key 的范围。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 
@@ -80,6 +81,7 @@ public interface StoreManager {
     String getName();
 
     /**
+     * 返回一个列表，里面是本地机器上存储的 分区的k的起始与终点值，KeyRange 两个属性，两个字节数组，为起始值的key与终点值的key。
      * Returns {@code KeyRange}s locally hosted on this machine. The start of
      * each {@code KeyRange} is inclusive. The end is exclusive. The start and
      * end must each be at least 4 bytes in length.

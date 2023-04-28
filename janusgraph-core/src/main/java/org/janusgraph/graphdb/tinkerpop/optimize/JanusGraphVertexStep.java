@@ -87,14 +87,21 @@ public class JanusGraphVertexStep<E extends Element> extends VertexStep<E> imple
         this.txVertexCacheSize = txVertexCacheSize;
     }
 
+    //基于点的查询实例，在设置类型扩散条件 还有指向等。
     public <Q extends BaseVertexQuery> Q makeQuery(Q query) {
-        query.labels(getEdgeLabels());
-        query.direction(getDirection());
+        query.labels(getEdgeLabels()); //查询类型
+        query.direction(getDirection());//查询方向
+        //属性过滤 has语句优化后，整合的。
         for (final HasContainer condition : hasContainers) {
             query.has(condition.getKey(), JanusGraphPredicate.Converter.convert(condition.getBiPredicate()), condition.getValue());
         }
-        for (final OrderEntry order : orders) query.orderBy(order.key, order.order);
-        if (limit != BaseQuery.NO_LIMIT) query.limit(limit);
+
+        for (final OrderEntry order : orders)
+            query.orderBy(order.key, order.order);
+
+        if (limit != BaseQuery.NO_LIMIT)
+            query.limit(limit);
+
         ((BasicVertexCentricQueryBuilder) query).profiler(queryProfiler);
         return query;
     }
@@ -193,8 +200,11 @@ public class JanusGraphVertexStep<E extends Element> extends VertexStep<E> imple
             }
             result = multiQueryResults.get(traverser.get());
         } else {
+            //基于这个点，返回一个查询构造器
             final JanusGraphVertexQuery query = makeQuery((JanusGraphTraversalUtil.getJanusGraphVertex(traverser)).query());
-            result = (Vertex.class.isAssignableFrom(getReturnClass())) ? query.vertices() : query.edges();
+            result =  (Vertex.class.isAssignableFrom(getReturnClass())) ?
+                query.vertices() //返回临接点
+                : query.edges(); //返回边
         }
 
         if (batchPropertyPrefetching) {

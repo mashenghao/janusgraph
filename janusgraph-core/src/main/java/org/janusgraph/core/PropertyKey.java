@@ -17,6 +17,9 @@ package org.janusgraph.core;
 
 
 /**
+ *
+ * 标记是属性schema类型。
+ * 属性key是针对属性用的，每个属性都有一个key。
  * PropertyKey is an extension of {@link RelationType} for properties. Each property in JanusGraph has a key.
  * <p>
  * A property key defines the following characteristics of a property:

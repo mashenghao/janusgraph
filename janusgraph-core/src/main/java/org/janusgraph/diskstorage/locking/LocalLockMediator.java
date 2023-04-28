@@ -27,6 +27,12 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
+ *
+ * jvm锁：
+ * 主要目的： 在图实例维度来做一层锁判断，减少分布式锁的并发冲突，减少分布式锁带来的性能消耗
+ *  内部维护map，记录<LockId,事务对象>，标记数据被哪个事务持有了， 和 LockStatus区分，哪个是存储本地锁
+ *  加成功后的记录。
+ *
  * This class resolves lock contention between two transactions on the same JVM.
  * <p>
  * This is not just an optimization to reduce network traffic. Locks written by
@@ -54,6 +60,7 @@ public class LocalLockMediator<T> {
     private final TimestampProvider times;
 
     /**
+     *
      * Maps a ({@code key}, {@code column}) pair to the local transaction
      * holding a lock on that pair. Values in this map may have already expired
      * according to {@link AuditRecord#expires}, in which case the lock should
@@ -104,19 +111,22 @@ public class LocalLockMediator<T> {
         final StackTraceElement[] acquiredAt = log.isTraceEnabled() ?
                 new Throwable("Lock acquisition by " + requester).getStackTrace() : null;
 
+        //本地锁数据
         final AuditRecord<T> audit = new AuditRecord<>(requester, expires, acquiredAt);
+
+        //直接用map的并发控制
         final AuditRecord<T> inMap = locks.putIfAbsent(kc, audit);
 
         boolean success = false;
 
-        if (null == inMap) {
+        if (null == inMap) { //当前kc下，没有事务信息，成功获取锁。
             // Uncontended lock succeeded
             if (log.isTraceEnabled()) {
                 log.trace("New local lock created: {} namespace={} txn={}",
                     kc, name, requester);
             }
             success = true;
-        } else if (inMap.equals(audit)) {
+        } else if (inMap.equals(audit)) { //获取锁的是同一个事物，更新失效时间。
             // requester has already locked kc; update expiresAt
             success = locks.replace(kc, inMap, audit);
             if (log.isTraceEnabled()) {
@@ -129,14 +139,15 @@ public class LocalLockMediator<T> {
                 }
             }
         } else if (0 > inMap.expires.compareTo(times.getTime())) {
-            // the recorded lock has expired; replace it
+            // the recorded lock has expired; replace it ，事务失效了，取代它。
             success = locks.replace(kc, inMap, audit);
             if (log.isTraceEnabled()) {
                 log.trace("Discarding expired lock: {} namespace={} txn={} expired={}",
                     kc, name, inMap.holder, inMap.expires);
             }
         } else {
-            // we lost to a valid lock
+
+            // we lost to a valid lock,已经有其他事务在操作这个记录。 锁占用，且未过期。
             if (log.isTraceEnabled()) {
                 log.trace("Local lock failed: {} namespace={} txn={} (already owned by {})",
                     kc, name, requester, inMap);

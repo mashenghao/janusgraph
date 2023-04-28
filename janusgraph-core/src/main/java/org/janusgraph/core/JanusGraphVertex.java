@@ -20,6 +20,7 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 
 /**
+ * janusgraph的点。
  * JanusGraphVertex is the basic unit of a {@link JanusGraph}.
  * It extends the functionality provided by Blueprint's {@link Vertex} by helper and convenience methods.
  * <p>
@@ -107,6 +108,10 @@ public interface JanusGraphVertex extends JanusGraphElement, Vertex {
 	 */
 
     /**
+     *
+     * //基于这个点，返回一个查询构造器。 这个返回的实例JanusGraphVertexQuery， 实现类是VertexCentricQueryBuilder，
+     * 不仅是设置查询过滤条件，也可以转换为hbase的查询条件。
+     *
      * Starts a new {@link JanusGraphVertexQuery} for this vertex.
      * <p>
      * Initializes and returns a new {@link JanusGraphVertexQuery} based on this vertex.

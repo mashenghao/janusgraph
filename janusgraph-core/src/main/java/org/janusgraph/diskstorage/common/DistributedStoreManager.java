@@ -26,9 +26,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Random;
 import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.*;
-
 /**
  * Abstract class that handles configuration options shared by all distributed storage backends
+ * 抽象类，用来处理分布式存储后端 共享的配置，比如端口，密码 主机地址，超时时间还有认证，感觉没啥用。 只是标记是个分布式存储.
+ * 保存了一些分布式存储需要用的配置。 特有的接口：getDeployment(),返回是一个枚举类，标记到后端的连接类型，是远程的还是本地的。
  *
  * @author Matthias Broecheler (me@matthiasb.com)
  */
@@ -45,7 +46,7 @@ public abstract class DistributedStoreManager extends AbstractStoreManager {
         REMOTE,
 
         /**
-         * Connects to storage backend over localhost or some other connection with very low latency
+         * Connects to storage backend over localhost or some other connection with very low latency（延迟）
          */
         LOCAL,
 

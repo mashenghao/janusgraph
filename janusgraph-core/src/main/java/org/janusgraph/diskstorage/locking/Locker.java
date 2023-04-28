@@ -78,6 +78,8 @@ public interface Locker {
             throws TemporaryLockingException, PermanentLockingException;
 
     /**
+     *
+     * 校验当前事务是否持有分布式锁， 对于writeLock中写入到hbase中的记录。
      * Verify that all previous {@link #writeLock(KeyColumn, StoreTransaction)}
      * calls with {@code tx} actually succeeded.
      * <p>

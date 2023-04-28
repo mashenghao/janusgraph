@@ -98,6 +98,16 @@ public class StandardIDPool implements IDPool {
 
     private final Queue<Future<?>> closeBlockers;
 
+    /**
+     * 创建一个idpool
+     *
+     * @param idAuthority
+     * @param partition 分区号
+     * @param idNamespace id的name类型，取得是点 或者 边 或者schema 点的 枚举序号， 根据parttion和枚举序号确定块的起始值。
+     * @param idUpperBound  id上线
+     * @param renewTimeout
+     * @param renewBufferPercentage 获取新的buffer，当前current使用占比。
+     */
     public StandardIDPool(IDAuthority idAuthority, int partition, int idNamespace, long idUpperBound, Duration renewTimeout, double renewBufferPercentage) {
         Preconditions.checkArgument(idUpperBound > 0);
         this.idAuthority = idAuthority;
@@ -111,6 +121,7 @@ public class StandardIDPool implements IDPool {
         Preconditions.checkArgument(renewBufferPercentage>0.0 && renewBufferPercentage<=1.0,"Renew-buffer percentage must be in (0.0,1.0]");
         this.renewBufferPercentage = renewBufferPercentage;
 
+        //创建一个IdPool的时候的初始状态。 块里面的id数为0.
         currentBlock = UNINITIALIZED_BLOCK;
         currentIndex = 0;
         renewBlockIndex = 0;
@@ -169,15 +180,18 @@ public class StandardIDPool implements IDPool {
         }
     }
 
+    //提交一个异步任务获取下一个block，如果下一个块为null，同步阻塞等待
     private synchronized void nextBlock() throws InterruptedException {
         assert currentIndex == currentBlock.numIds();
         Preconditions.checkState(!closed,"ID Pool has been closed for partition(%s)-namespace(%s) - cannot apply for new id block",
                 partition,idNamespace);
 
+        //第一次访问这个block块。
         if (null == nextBlock && null == idBlockFuture) {
             startIDBlockGetter();
         }
 
+        //阻塞等待， 获取到后nextBlock将会被设置值。
         if (null == nextBlock) {
             waitForIDBlockGetter();
         }
@@ -195,24 +209,40 @@ public class StandardIDPool implements IDPool {
         nextBlock = null;
 
         assert RENEW_ID_COUNT>0;
+        //计算下次获取block块的索引值。
         renewBlockIndex = Math.max(0,currentBlock.numIds()-Math.max(RENEW_ID_COUNT, Math.round(currentBlock.numIds()*renewBufferPercentage)));
         assert renewBlockIndex<currentBlock.numIds() && renewBlockIndex>=currentIndex;
     }
 
+    /**
+     * 每一个PartitionIDPool 都有对应的不同类型的StandardIDPool：
+     * 会根据 parttion  与 不同类型的点id 去确定这个block的预申请id。
+     * NORMAL_VERTEX：用于vertex id的分配
+     * UNMODIFIABLE_VERTEX：用于schema label id的分配
+     * RELATION：用于edge id的分配
+     *
+     * @return
+     */
     @Override
     public synchronized long nextID() {
         assert currentIndex <= currentBlock.numIds();
 
+        // 此处涉及两种情况：
+        // 1、分区对应的IDPool是第一次被初始化；则currentIndex = 0； currentBlock.numIds() = 0；
+        // 2、分区对应的该IDPool不是第一次，但是此次的index正好使用到了current block的最后一个coun
         if (currentIndex == currentBlock.numIds()) {
             try {
+                //获取下一个block块的数据。第一次进来，
+                // 或者当前block用完了，会进去方法。currentBlock 更换为当前block。
                 nextBlock();
             } catch (InterruptedException e) {
                 throw new JanusGraphException("Could not renew id block due to interruption", e);
             }
         }
 
+        // 在使用current block的过程中，当current index  ==  renewBlockIndex时，触发double buffer next block的异步获取！！！！
         if (currentIndex == renewBlockIndex) {
-            startIDBlockGetter();
+            startIDBlockGetter(); //提交任务到索引值。
         }
 
         long returnId = currentBlock.getId(currentIndex);
@@ -247,11 +277,13 @@ public class StandardIDPool implements IDPool {
         Preconditions.checkArgument(idBlockFuture == null, idBlockFuture);
         if (closed) return; //Don't renew anymore if closed
         //Renew buffer
+        //这里创建一个IDBlockGetter的异步任务，返回future设置到idBlockFuture属性中。future返回的是一个IDBlock
         log.debug("Starting id block renewal thread upon {}", currentIndex);
         idBlockGetter = new IDBlockGetter(idAuthority, partition, idNamespace, renewTimeout);
         idBlockFuture = exec.submit(idBlockGetter);
     }
 
+    //重试获取IdBlock。
     private static class IDBlockGetter implements Callable<IDBlock> {
 
         private final Stopwatch alive;
@@ -285,6 +317,7 @@ public class StandardIDPool implements IDPool {
                             partition, idNamespace, running.stop(), alive.stop());
                     throw new JanusGraphException("ID block retrieval aborted by caller");
                 }
+                //乐观锁方式获取下一个block的值。
                 IDBlock idBlock = idAuthority.getIDBlock(partition, idNamespace, renewTimeout);
                 log.debug("Retrieved ID block from authority on partition({})-namespace({}), " +
                           "exec time {}, exec+q time {}",

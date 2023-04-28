@@ -18,6 +18,7 @@ package org.janusgraph.core;
 import java.util.Collection;
 
 /**
+ * 标记是边的属性。
  * EdgeLabel is an extension of {@link RelationType} for edges. Each edge in JanusGraph has a label.
  * <p>
  * An edge label defines the following characteristics of an edge:
@@ -65,7 +66,7 @@ public interface EdgeLabel extends RelationType {
     Collection<PropertyKey> mappedProperties();
 
     /**
-     * Collects all connection constraints.
+     * Collects all connection constraints. 返回一个list，list是一个Connection，标记这个边可以连接的一对点label。
      *
      * @return a list of {@link Connection} which represents all connection constraints for a {@link EdgeLabel}.
      */

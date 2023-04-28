@@ -52,6 +52,12 @@ public interface HBaseCompat {
      */
     HTableDescriptor newTableDescriptor(String tableName);
 
+    /**
+     * 创建 hbase 的connection对象，包装到ConnectionMask中。
+     * @param conf
+     * @return
+     * @throws IOException
+     */
     ConnectionMask createConnection(Configuration conf) throws IOException;
 
     void addColumnFamilyToTableDescriptor(HTableDescriptor tableDescriptor, HColumnDescriptor columnDescriptor);

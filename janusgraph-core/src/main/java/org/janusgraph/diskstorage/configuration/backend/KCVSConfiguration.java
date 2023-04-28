@@ -49,15 +49,19 @@ import java.util.stream.Collectors;
 
 import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.TIMESTAMP_PROVIDER;
 
-/**
+/**这里创建了KCVSConfiguration，这个配置类里面打开了一个库叫system_properties，对应的属性是KeyColumnValueStore store，估计是用来存储配置信息的。
+ *     private final BackendOperation.TransactionalProvider txProvider;//用来提供事务的管理器
+ *     private final TimestampProvider times;//用来提供时间的。
+ *     private final KeyColumnValueStore store; //对应的后台系统的存储库
+ *     重要的属性。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public class KCVSConfiguration implements ConcurrentWriteConfiguration {
 
-    private final BackendOperation.TransactionalProvider txProvider;
-    private final TimestampProvider times;
-    private final KeyColumnValueStore store;
-    private final StaticBuffer rowKey;
+    private final BackendOperation.TransactionalProvider txProvider;//用来提供事务的管理器
+    private final TimestampProvider times;//用来提供时间的。
+    private final KeyColumnValueStore store; //对应的后台系统的存储库
+    private final StaticBuffer rowKey; //configuration 固定值。
     private final StandardSerializer serializer;
 
     private Duration maxOperationWaitTime = Duration.ofMillis(10000L);

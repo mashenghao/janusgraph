@@ -43,6 +43,7 @@ import java.io.InterruptedIOException;
 import java.util.*;
 
 /**
+ *KeyColumnValueStore底层对应的操作，没看懂咋回事呢，
  * Here are some areas that might need work:
  * <p>
  * - batching? (consider HTable#batch, HTable#setAutoFlush(false)
@@ -68,11 +69,12 @@ public class HBaseKeyColumnValueStore implements KeyColumnValueStore {
     //private final String columnFamily;
     private final String storeName;
     // This is columnFamily.getBytes()
+    // 这个列簇是当前kcv操作的hbase的列簇，Janus那hbase的列簇当做一个kcv系统操作。
     private final byte[] columnFamilyBytes;
     private final HBaseGetter entryGetter;
 
     private final ConnectionMask cnx;
-
+    //初始化提供了，storeManager的实例，connection还有列簇的名。
     HBaseKeyColumnValueStore(HBaseStoreManager storeManager, ConnectionMask cnx, String tableName, String columnFamily, String storeName) {
         this.storeManager = storeManager;
         this.cnx = cnx;
@@ -87,6 +89,13 @@ public class HBaseKeyColumnValueStore implements KeyColumnValueStore {
     public void close() throws BackendException {
     }
 
+    /**
+     * 根据 query中的rowkey  和 column的start  和 end 查找cell。 每个cell都封装成Entry
+     * @param query Query to get results for
+     * @param txh   Transaction
+     * @return
+     * @throws BackendException
+     */
     @Override
     public EntryList getSlice(KeySliceQuery query, StoreTransaction txh) throws BackendException {
         Map<StaticBuffer, EntryList> result = getHelper(Collections.singletonList(query.getKey()), getFilter(query));
@@ -95,7 +104,7 @@ public class HBaseKeyColumnValueStore implements KeyColumnValueStore {
 
     @Override
     public Map<StaticBuffer,EntryList> getSlice(List<StaticBuffer> keys, SliceQuery query, StoreTransaction txh) throws BackendException {
-        return getHelper(keys, getFilter(query));
+        return getHelper(keys, getFilter(query));//查询接口，getFilter用来通过SliceQuery生成Filter。
     }
 
     @Override
@@ -129,7 +138,7 @@ public class HBaseKeyColumnValueStore implements KeyColumnValueStore {
     public KeyIterator getKeys(SliceQuery query, StoreTransaction txh) throws BackendException {
         return executeKeySliceQuery(new FilterList(FilterList.Operator.MUST_PASS_ALL), query);
     }
-
+    //通过query 生成 Filter。Filter的查询 指定了column的key的值。
     public static Filter getFilter(SliceQuery query) {
         byte[] colStartBytes = query.getSliceStart().length() > 0 ? query.getSliceStart().as(StaticBuffer.ARRAY_FACTORY) : null;
         byte[] colEndBytes = query.getSliceEnd().length() > 0 ? query.getSliceEnd().as(StaticBuffer.ARRAY_FACTORY) : null;
@@ -150,7 +159,7 @@ public class HBaseKeyColumnValueStore implements KeyColumnValueStore {
     private Map<StaticBuffer,EntryList> getHelper(List<StaticBuffer> keys, Filter getFilter) throws BackendException {
         List<Get> requests = new ArrayList<>(keys.size());
         {
-            for (StaticBuffer key : keys) {
+            for (StaticBuffer key : keys) {//Get 的查询条件，指定列簇，设置Filter, Filter指定了查询那些column值。
                 Get g = new Get(key.as(StaticBuffer.ARRAY_FACTORY)).addFamily(columnFamilyBytes).setFilter(getFilter);
                 try {
                     g.setTimeRange(0, Long.MAX_VALUE);
@@ -180,9 +189,11 @@ public class HBaseKeyColumnValueStore implements KeyColumnValueStore {
             assert results.length==keys.size();
 
             for (int i = 0; i < results.length; i++) {
+                //解析cell。
                 final Result result = results[i];
+                //            列簇      列簇下cell集合       单个cell下的版本与值。
                 NavigableMap<byte[], NavigableMap<byte[], NavigableMap<Long, byte[]>>> f = result.getMap();
-
+                //f是每个列簇为key，列簇下kv对为value。
                 if (f == null) { // no result for this key
                     resultMap.put(keys.get(i), EntryList.EMPTY_LIST);
                     continue;
@@ -194,7 +205,7 @@ public class HBaseKeyColumnValueStore implements KeyColumnValueStore {
                                             ? EntryList.EMPTY_LIST
                                             : StaticArrayEntryList.ofBytes(r.entrySet(), entryGetter));
             }
-
+            //返回的是从hbase查询来的kv对，k是查询rowkey，v是columnValue的对，放到一个字节数组了。
             return resultMap;
         } catch (InterruptedIOException e) {
             // added to support traversal interruption

@@ -36,7 +36,7 @@ public class IDHandler {
     public static final StaticBuffer MAX_KEY = BufferUtil.getLongBuffer(-1);
 
     public enum DirectionID {
-
+        //标记edge列簇下cell的column的类型，可能是出边，入边 也可能是 点属性。
         PROPERTY_DIR(0),  //00b
         EDGE_OUT_DIR(2),  //10b
         EDGE_IN_DIR(3);   //11b
@@ -126,7 +126,7 @@ public class IDHandler {
         IDHandler.writeRelationType(b, relationTypeId, dirID, invisible);
         return b.getStaticBuffer();
     }
-
+    //根据buffer 解析出这个buffer是啥种类型的关系，是点属性 还是关系边
     public static RelationTypeParse readRelationType(ReadBuffer in) {
         long[] countPrefix = VariableLong.readPositiveWithPrefix(in, PREFIX_BIT_LEN);
         DirectionID dirID = DirectionID.getDirectionID((int) countPrefix[1] & 1, (int) (countPrefix[0] & 1));

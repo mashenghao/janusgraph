@@ -41,6 +41,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ *
+ * 图语义层的点中心查询的扩展。  用于构造{@link VertexCentricQuery} 用的。 hbase查询用的。
+ *
  * Builds a {@link org.janusgraph.core.BaseVertexQuery}, optimizes the query and compiles the result into a {@link BaseVertexCentricQuery} which
  * is then executed by one of the extending classes.
  *

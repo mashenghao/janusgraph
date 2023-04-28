@@ -10,7 +10,8 @@
     </appender>
 
     <!-- show parameters for hibernate sql 专为 Hibernate 定制 -->
-    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+    <logger name="org.apache.tinkerpop.gremlin.server.handler" level="DEBUG"/>
+    <logger name="org.apache.tinkerpop.gremlin.groovy.engine.GremlinExecutor" level="DEBUG"/>
 
     <!-- 日志输出级别 -->
     <root level="INFO">

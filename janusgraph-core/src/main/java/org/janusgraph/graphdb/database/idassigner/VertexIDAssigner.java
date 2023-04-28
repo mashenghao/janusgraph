@@ -46,7 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.*;
-
+//分配
 @PreInitializeConfigOptions
 public class VertexIDAssigner implements AutoCloseable {
 
@@ -80,7 +80,7 @@ public class VertexIDAssigner implements AutoCloseable {
 
     public VertexIDAssigner(Configuration config, IDAuthority idAuthority, StoreFeatures idAuthFeatures) {
         Preconditions.checkNotNull(idAuthority);
-        this.idAuthority = idAuthority;
+        this.idAuthority = idAuthority;//janusgraph_ids store对应的值。
 
 
         int partitionBits = NumberUtil.getPowerOf2(config.get(CLUSTER_MAX_PARTITIONS));
@@ -155,29 +155,35 @@ public class VertexIDAssigner implements AutoCloseable {
 
 
     private void assignID(InternalElement element, IDManager.VertexIDType vertexIDType) {
+        //重试获取点。
         for (int attempt = 0; attempt < MAX_PARTITION_RENEW_ATTEMPTS; attempt++) {
+            //1. 先确定用那个parttion
             long partitionID = -1;
-            if (element instanceof JanusGraphSchemaVertex) {
+            if (element instanceof JanusGraphSchemaVertex) { //schema 类型节点。分区就是0
                 partitionID = IDManager.SCHEMA_PARTITION;
-            } else if (element instanceof JanusGraphVertex) {
-                if (vertexIDType== IDManager.VertexIDType.PartitionedVertex)
+            } else if (element instanceof JanusGraphVertex) { //正常逻辑，分区就是
+                if (vertexIDType== IDManager.VertexIDType.PartitionedVertex) //按照点切割的点label，分区是1， 这类型的点的边特别多，对这种点特殊处理了。
                     partitionID = IDManager.PARTITIONED_VERTEX_PARTITION;
                 else
-                    partitionID = placementStrategy.getPartition(element);
-            } else if (element instanceof InternalRelation) {
+                    partitionID = placementStrategy.getPartition(element); //获取到分区数，简单的获取逻辑就是32 之间随机数。
+            } else if (element instanceof InternalRelation) { // 属性 + 边
                 InternalRelation relation = (InternalRelation)element;
                 if (attempt < relation.getLen()) { //On the first attempts, try to use partition of incident vertices
                     InternalVertex incident = relation.getVertex(attempt);
                     Preconditions.checkArgument(incident.hasId());
+                    //获取对应节点已有的分区id
                     if (!IDManager.VertexIDType.PartitionedVertex.is(incident.longId()) || relation.isProperty()) {
                         partitionID = getPartitionID(incident);
                     } else {
                         continue;
                     }
                 } else {
+                    //随机获取一个分区号
                     partitionID = placementStrategy.getPartition(element);
                 }
             }
+
+            //2. 正式分配id ，根据parttion 和 节点类型
             try {
                 assignID(element, partitionID, vertexIDType);
             } catch (IDPoolExhaustedException e) {
@@ -295,6 +301,12 @@ public class VertexIDAssigner implements AutoCloseable {
         else return idManager.getPartitionId(vid);
     }
 
+    /**
+     *
+     * @param element
+     * @param partitionIDl
+     * @param userVertexIDType
+     */
     private void assignID(final InternalElement element, final long partitionIDl, final IDManager.VertexIDType userVertexIDType) {
         Preconditions.checkNotNull(element);
         Preconditions.checkArgument(!element.hasId());
@@ -303,33 +315,40 @@ public class VertexIDAssigner implements AutoCloseable {
         final int partitionID = (int) partitionIDl;
 
         long count;
-        if (element instanceof JanusGraphSchemaVertex) {
+        if (element instanceof JanusGraphSchemaVertex) { //schema点的分区号是0
             Preconditions.checkArgument(partitionID==IDManager.SCHEMA_PARTITION);
             count = schemaIdPool.nextID();
-        } else if (userVertexIDType==IDManager.VertexIDType.PartitionedVertex) {
+            // 配置的热点节点，类似于`makeVertexLabel('product').partition()`的处理
+        } else if (userVertexIDType==IDManager.VertexIDType.PartitionedVertex) {//相当于是个热点数据集的处理，对这种label类型的顶点。
             Preconditions.checkArgument(partitionID==IDManager.PARTITIONED_VERTEX_PARTITION);
             Preconditions.checkArgument(partitionVertexIdPool!=null);
             count = partitionVertexIdPool.nextID();
         } else {
             PartitionIDPool partitionPool = idPools.get(partitionID);
-            if (partitionPool == null) {
+            if (partitionPool == null) { //该分区对应的IDPool不存在的话，
+                // 在PartitionIDPool中包含多种类型对应的StandardIDPool类型
+                //StandardIDPool中包含对应的block和count信息。
                 partitionPool = new PartitionIDPool(partitionID, idAuthority, idManager, renewTimeoutMS, renewBufferPercentage);
                 idPools.putIfAbsent(partitionID,partitionPool);
                 partitionPool = idPools.get(partitionID);
             }
             Preconditions.checkNotNull(partitionPool);
-            if (partitionPool.isExhausted()) {
+            if (partitionPool.isExhausted()) { //该分区id 用完了。 抛出异常重试 换下个分区。
                 placementStrategy.exhaustedPartition(partitionID);
                 throw new IDPoolExhaustedException("Exhausted id pool for partition: " + partitionID);
             }
             IDPool idPool;
             if (element instanceof JanusGraphRelation) {
+                //关系类型的节点idPool。
                 idPool = partitionPool.getPool(PoolType.RELATION);
             } else {
+                //点类型的idpool。
                 Preconditions.checkArgument(userVertexIDType!=null);
+                //TODO: 此位置，获取池，根据元素类型。
                 idPool = partitionPool.getPool(PoolType.getPoolTypeFor(userVertexIDType));
             }
             try {
+                //获取不同类型下idpool中的id值。
                 count = idPool.nextID();
                 partitionPool.accessed();
             } catch (IDPoolExhaustedException e) {
@@ -341,17 +360,17 @@ public class VertexIDAssigner implements AutoCloseable {
         }
 
         long elementId;
-        if (element instanceof InternalRelation) {
+        if (element instanceof InternalRelation) { //为边或者属性组成一个边id
             elementId = idManager.getRelationID(count, partitionID);
-        } else if (element instanceof PropertyKey) {
+        } else if (element instanceof PropertyKey) { //为属性点 组成一个分区id
             elementId = IDManager.getSchemaId(IDManager.VertexIDType.UserPropertyKey,count);
-        } else if (element instanceof EdgeLabel) {
+        } else if (element instanceof EdgeLabel) { //为 edgeLabel点 组成一个分区id。
             elementId = IDManager.getSchemaId(IDManager.VertexIDType.UserEdgeLabel, count);
-        } else if (element instanceof VertexLabel) {
+        } else if (element instanceof VertexLabel) { //为 vertexLabel点组成一个分区id
             elementId = IDManager.getSchemaId(IDManager.VertexIDType.VertexLabel, count);
-        } else if (element instanceof JanusGraphSchemaVertex) {
+        } else if (element instanceof JanusGraphSchemaVertex) { // 有用？
             elementId = IDManager.getSchemaId(IDManager.VertexIDType.GenericSchemaType,count);
-        } else {
+        } else {  //为普通点组成一个分区id。
             elementId = idManager.getVertexID(count, partitionID, userVertexIDType);
         }
 
@@ -408,7 +427,7 @@ public class VertexIDAssigner implements AutoCloseable {
     }
 
     private enum PoolType {
-
+       // UNMODIFIABLE_VERTEX 用于schema label id的分配
         NORMAL_VERTEX, UNMODIFIABLE_VERTEX, PARTITIONED_VERTEX, RELATION, SCHEMA;
 
         public int getIDNamespace() {
@@ -457,13 +476,28 @@ public class VertexIDAssigner implements AutoCloseable {
         private volatile long lastAccess;
         private volatile boolean exhausted;
 
+        // 对每个需要获取唯一点的元素，有点id，边ID 和 schemal label的id。 给每一个类型创建一个StandardIDPool。 每个类型下IDPool都是独立的，独立的
+        //去获取自己类型的block。idNamespace
         PartitionIDPool(int partitionID, IDAuthority idAuthority, IDManager idManager, Duration renewTimeoutMS, double renewBufferPercentage) {
             super(PoolType.class);
+            //给需要获取该分区内的id点或者边类型 都创建一个StandardIDPool，去分类型获取id。
             for (PoolType type : PoolType.values()) {
                 if (!type.hasOnePerPartition()) continue;
+                //为 正常点， 不正常点 与边 各创建一个IDPool，schema 和 parttion点不用创建了。
                 put(type,new StandardIDPool(idAuthority, partitionID, type.getIDNamespace(), type.getCountBound(idManager), renewTimeoutMS, renewBufferPercentage));
             }
         }
+
+        /**
+         *     /**
+         *      * 每一个PartitionIDPool 都有对应的不同类型的StandardIDPool：
+         *      *
+         *      * NORMAL_VERTEX：用于vertex id的分配
+         *      * UNMODIFIABLE_VERTEX：用于schema label id的分配
+         *      * RELATION：用于edge id的分配
+         *      *
+         *      * @return
+         *      */
 
         public IDPool getPool(PoolType type) {
             Preconditions.checkArgument(!exhausted && type.hasOnePerPartition());

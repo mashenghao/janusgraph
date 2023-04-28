@@ -19,6 +19,7 @@ import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 
 /**
+ * janusgraph的 边
  * JanusGraphRelation is the most abstract form of a relation between a vertex and some other entity, where
  * relation is understood in its mathematical sense. It generalizes the notion of an edge and a property.
  * <br>
@@ -31,7 +32,7 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
  * A JanusGraphRelation is either directed, or unidirected. Properties are always directed (connecting a vertex
  * with a value). A unidirected edge is a special type of directed edge where the connection is only established from the
  * perspective of the outgoing vertex. In that sense, a unidirected edge is akin to a link.
- *
+ * janusgraph的 边
  * @author Matthias Br&ouml;cheler (http://www.matthiasb.com)
  * @see JanusGraphEdge
  * @see JanusGraphVertexProperty

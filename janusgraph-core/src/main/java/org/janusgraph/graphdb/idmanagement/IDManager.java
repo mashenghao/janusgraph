@@ -21,7 +21,7 @@ import org.janusgraph.diskstorage.StaticBuffer;
 import org.janusgraph.diskstorage.util.BufferUtil;
 import org.janusgraph.graphdb.database.idhandling.VariableLong;
 
-/**
+/**处理基于元素类型的 id 分配负责 JanusGraph 内部 id 方案的位模式。
  * Handles the allocation of ids based on the type of element
  * Responsible for the bit-wise pattern of JanusGraph's internal id scheme.
  *
@@ -31,7 +31,7 @@ public class IDManager {
 
     /**
      *bit mask- Description (+ indicates defined type, * indicates proper &amp; defined type)
-     *
+     *            点id，固定0，业务点。
      *      0 - + User created Vertex
      *    000 -     * Normal vertices
      *    010 -     * Partitioned vertices
@@ -39,19 +39,19 @@ public class IDManager {
      *    110 -     + Reserved for additional vertex type
      *      1 - + Invisible
      *     11 -     * Invisible (user created/triggered) Vertex [for later]
-     *     01 -     + Schema related vertices
+     *     01 -     + Schema related vertices       这些点都是用来存储schema 点的id。
      *    101 -         + Schema Type vertices
-     *   0101 -             + Relation Type vertices
-     *  00101 -                 + Property Key
+     *   0101 -             + Relation Type vertices      关系类型
+     *  00101 -                 + Property Key            属性点的schema定义
      * 000101 -                     * User Property Key
      * 100101 -                     * System Property Key
-     *  10101 -                 + Edge Label
+     *  10101 -                 + Edge Label              边schema点的定义
      * 010101 -                     * User Edge Label
      * 110101 -                     * System Edge Label
      *   1101 -             Other Type vertices
-     *  01101 -                 * Vertex Label
+     *  01101 -                 * Vertex Label          //vertexLabel 标记这个点id 是存储的是点Label，会有个边的targetid存储这个点id的。
      *    001 -         Non-Type vertices
-     *   1001 -             * Generic Schema Vertex
+     *   1001 -             * Generic Schema Vertex      好像没用到。
      *   0001 -             Reserved for future
      *
      *
@@ -105,6 +105,7 @@ public class IDManager {
                 return true;
             }
         },
+        //这种类型的id，是TTl的点才是。
         UnmodifiableVertex {
             @Override
             final long offset() {
@@ -333,8 +334,16 @@ public class IDManager {
             }
         };
 
+        /**
+         * 1左移多少位
+         * @return
+         */
         abstract long offset();
 
+        /**
+         * id后缀等于多少
+         * @return
+         */
         abstract long suffix();
 
         abstract boolean isProper();
@@ -342,7 +351,7 @@ public class IDManager {
         public final long addPadding(long count) {
             assert offset()>0;
             Preconditions.checkArgument(count>0 && count<(1L <<(TOTAL_BITS-offset())),"Count out of range for type [%s]: %s",this,count);
-            return (count << offset()) | suffix();
+            return (count << offset()) | suffix(); //左移offset位，左移的位用suffix加上。
         }
 
         public final long removePadding(long id) {
@@ -350,6 +359,8 @@ public class IDManager {
         }
 
         public final boolean is(long id) {
+            //id & 1右移多少位后， 是否等于 suffix
+            //比如 normal 类型为000， 1右移3位后，0001>>3 -1 = 111 ,111 & id看后缀是否是000。
             return (id & ((1L << offset()) - 1)) == suffix();
         }
 
@@ -360,9 +371,11 @@ public class IDManager {
 
     /**
      * Id of the partition that schema elements are assigned to
+     * 模式元素被分配到的分区id
      */
     public static final int SCHEMA_PARTITION = 0;
 
+    //存按照点切割的点的分区号。
     public static final int PARTITIONED_VERTEX_PARTITION = 1;
 
 
@@ -441,7 +454,7 @@ public class IDManager {
      /*		--- JanusGraphElement id bit format ---
       *  [ 0 | count | partition | ID padding (if any) ]
      */
-
+    // janusgraph 的vertexid是 count 加 分区数 + 点id类型后缀 组成的long
     private long constructId(long count, long partition, VertexIDType type) {
         Preconditions.checkArgument(partition<partitionIDBound && partition>=0,"Invalid partition: %s",partition);
         Preconditions.checkArgument(count>=0);
@@ -477,6 +490,7 @@ public class IDManager {
         return partition;
     }
 
+    //将long类型的点id，转成字节。 展示的vid  和 hbase 中的 rowkey不一样，会进行转换的。
     public StaticBuffer getKey(long vertexId) {
         if (VertexIDType.Schema.is(vertexId)) {
             //No partition for schema vertices
@@ -485,22 +499,22 @@ public class IDManager {
             assert isUserVertexId(vertexId);
             VertexIDType type = getUserVertexIDType(vertexId);
             assert type.offset()==USERVERTEX_PADDING_BITWIDTH;
-            long partition = getPartitionId(vertexId);
+            long partition = getPartitionId(vertexId);//获取分区id。
             long count = vertexId>>>(partitionBits+USERVERTEX_PADDING_BITWIDTH);
             assert count>0;
             long keyId = (partition<<partitionOffset) | type.addPadding(count);
             return BufferUtil.getLongBuffer(keyId);
         }
     }
-
+    //从rowkey中解析出vertexid， rowkey是8字节， 其中8字节前5位(可配置)是分区数，最后几位是点的类型(正常点是000)，中间的为点的count55位。
     public long getKeyID(StaticBuffer b) {
         long value = b.getLong(0);
         if (VertexIDType.Schema.is(value)) {
             return value;
         } else {
-            VertexIDType type = getUserVertexIDType(value);
-            long partition = partitionOffset<Long.SIZE?value>>>partitionOffset:0;
-            long count = (value>>>USERVERTEX_PADDING_BITWIDTH) & ((1L <<(partitionOffset-USERVERTEX_PADDING_BITWIDTH))-1);
+            VertexIDType type = getUserVertexIDType(value); //根据padding位，区分点类型
+            long partition = partitionOffset<Long.SIZE?value>>>partitionOffset:0; //获取分区值，去取高位值。
+            long count = (value>>>USERVERTEX_PADDING_BITWIDTH) & ((1L <<(partitionOffset-USERVERTEX_PADDING_BITWIDTH))-1); //流水位，rowkey右移padding为，之后 & partion的。
             return constructId(count,partition,type);
         }
     }
@@ -515,6 +529,8 @@ public class IDManager {
         Preconditions.checkArgument(VertexIDType.UserVertex.is(vertexType.suffix()),"Not a user vertex type: %s",vertexType);
         Preconditions.checkArgument(count>0 && count<vertexCountBound,"Invalid count for bound: %s", vertexCountBound);
         if (vertexType==VertexIDType.PartitionedVertex) {
+            //对于热点分区 处理是，他去parttion为0的分区去取nextId， 根据nextId去做处理，找去一个新的分区号，作为分区地址。
+            //这种根据count去取分区，会导致count后的分区中，count值重复，但是热点的后缀是010,与其他的类型都不相同，也能保证全局唯一。 作用就是打散热点在的分区。
             Preconditions.checkArgument(partition==PARTITIONED_VERTEX_PARTITION);
             return getCanonicalVertexIdFromCount(count);
         } else {

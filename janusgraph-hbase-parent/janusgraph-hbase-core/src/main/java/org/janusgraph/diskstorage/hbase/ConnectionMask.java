@@ -27,6 +27,7 @@ import org.apache.hadoop.hbase.HRegionLocation;
 /**
  * This interface hides ABI/API breaking changes that HBase has made to its (H)Connection class over the course
  * of development from 0.94 to 1.0 and beyond.
+ * 用于兼容以前的版本。 只是用了hbase的这几个api吗。
  */
 public interface ConnectionMask extends Closeable
 {
@@ -47,6 +48,7 @@ public interface ConnectionMask extends Closeable
     AdminMask getAdmin() throws IOException;
 
     /**
+     * 返回一个hbase表的，region的定位信息，包括region(startKey和endKey) 与regionServer的位置信息。
      * Retrieve the RegionLocations for the supplied table name.
      * @param tableName
      * @return A map of HRegionInfo to ServerName that describes the storage regions for the named table.

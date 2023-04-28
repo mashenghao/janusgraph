@@ -54,6 +54,7 @@ public class ExpectedValueCheckingTransaction implements StoreTransaction {
      * locking stage of a transaction.  It is set to true at the
      * beginning of the first mutate/mutateMany call in a transaction
      * (before performing any writes to the backing store).
+     * 当前事务已经是有修改操作了。
      */
     private boolean isMutationStarted;
 
@@ -129,7 +130,7 @@ public class ExpectedValueCheckingTransaction implements StoreTransaction {
         lockedOn(store);
         Map<KeyColumn, StaticBuffer> m = expectedValuesByStore.get(store);
         assert null != m;
-        if (m.containsKey(lockID)) {
+        if (m.containsKey(lockID)) {// jvm只存起来当前jvm的图实例第一个加锁的值。
             log.debug("Multiple expected values for {}: keeping initial value {} and discarding later value {}",
                 lockID, m.get(lockID), value);
         } else {

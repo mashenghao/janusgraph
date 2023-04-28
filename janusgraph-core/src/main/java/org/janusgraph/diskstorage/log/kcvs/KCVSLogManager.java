@@ -42,7 +42,9 @@ import static org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration.*;
 /**
  * Implementation of {@link LogManager} against an arbitrary {@link KeyColumnValueStoreManager}. Issues {@link Log} instances
  * which wrap around a {@link KeyColumnValueStore}.
+ * 针对KeyColumnValueStoreManager实现的日志管理器。   用来包装keyStorageManager的操作的KeyColumnValueStroe，实例是抽象了接口，来操作单个的列族。
  *
+ * 返回KCVSLog是一个包装类对KeyColumnValueStroe。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 @PreInitializeConfigOptions
@@ -64,7 +66,7 @@ public class KCVSLogManager implements LogManager {
     /**
      * If {@link #LOG_MAX_PARTITIONS} isn't set explicitly, the number of partitions is derived by taking the configured
      * {@link org.janusgraph.graphdb.configuration.GraphDatabaseConfiguration#CLUSTER_MAX_PARTITIONS} and dividing
-     * the number by this constant.
+     * the number by this constant.如果 {@link LOG_MAX_PARTITIONS} 未明确设置，则通过采用配置的 {@link org.janusgraph.graphdb.configuration.GraphDatabaseConfigurationCLUSTER_MAX_PARTITIONS} 并将该数字除以该常量来导出分区数。
      */
     public static final int CLUSTER_SIZE_DIVIDER = 8;
 
@@ -75,10 +77,12 @@ public class KCVSLogManager implements LogManager {
     private final Configuration configuration;
     /**
      * Store Manager against which to open the {@link KeyColumnValueStore}s to wrap the {@link KCVSLog} around.
+     * storeManager，这里是KeyColumnValueStoreManager，其实就是hbase的一堆配置，包括一个hbase的connection。
      */
     final KeyColumnValueStoreManager storeManager;
     /**
      * Id which uniquely identifies this instance. Also see {@link GraphDatabaseConfiguration#UNIQUE_INSTANCE_ID}.
+     * 就是janusgraph的图实例启动实例，一个图实例一个。
      */
     final String senderId;
 
@@ -96,17 +100,18 @@ public class KCVSLogManager implements LogManager {
      */
     final int[] readPartitionIds;
     /**
-     * Serializer used to (de)-serialize the log messages
+     * Serializer used to (de)-serialize the log messages 序列化用。
      */
     final StandardSerializer serializer;
 
     /**
-     * Keeps track of all open logs
+     * Keeps track of all open logs 保存所有打开的KCVSLog
      */
     private final Map<String,KCVSLog> openLogs;
 
     /**
      * The time-to-live of all data in the index store/CF, expressed in seconds.
+     * 失效时间。
      */
     private final int indexStoreTTL;
 

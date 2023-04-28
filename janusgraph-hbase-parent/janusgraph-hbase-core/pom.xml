@@ -11,7 +11,7 @@
     <url>https://janusgraph.org</url>
     
     <properties>
-        <hadoop.profile>2.0</hadoop.profile>
+        <hadoop.profile>1.0</hadoop.profile>
         <top.level.basedir>${basedir}/../..</top.level.basedir>
     </properties>
     
@@ -28,7 +28,19 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-    
+    <distributionManagement>
+        <repository>
+            <id>ext-release-local</id>
+            <name>ext-release-local</name>
+            <url>http://maven:8081/artifactory/ext-release-local/</url>
+        </repository>
+        <snapshotRepository>
+            <id>ext-snapshot-local</id>
+            <name>ext-snapshot-local</name>
+            <url>http://maven:8081/artifactory/ext-snapshot-local/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <build>
         <sourceDirectory>src/main/java</sourceDirectory>
         <plugins>
@@ -41,7 +53,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
+           <!-- <plugin>
                 <artifactId>maven-deploy-plugin</artifactId>
                 <executions>
                     <execution>
@@ -49,7 +61,7 @@
                         <phase>none</phase>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin>-->
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <executions>

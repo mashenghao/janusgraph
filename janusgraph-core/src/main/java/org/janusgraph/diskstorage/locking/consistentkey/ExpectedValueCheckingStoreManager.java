@@ -31,7 +31,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
+/**ExpectedValueCheckingStoreManager 是打开的store都是打开了两个，返回的是一个包装后的store，这个store操作之前，先对lock_store加锁（包装方法）。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public class ExpectedValueCheckingStoreManager extends KCVSManagerProxy {
@@ -56,6 +56,7 @@ public class ExpectedValueCheckingStoreManager extends KCVSManagerProxy {
         this.stores = new HashMap<>(6);
     }
 
+    //这里返回了一个包装类，将操作store之前先添加锁，实际是打开了两个store。
     @Override
     public synchronized KeyColumnValueStore openDatabase(String name) throws BackendException {
         if (stores.containsKey(name)) return stores.get(name);
@@ -63,7 +64,7 @@ public class ExpectedValueCheckingStoreManager extends KCVSManagerProxy {
         final String lockerName = store.getName() + lockStoreSuffix;
         ExpectedValueCheckingStore wrappedStore = new ExpectedValueCheckingStore(store, lockerProvider.getLocker(lockerName));
         stores.put(name,wrappedStore);
-        return wrappedStore;
+        return wrappedStore;//这里返回了一个包装类，将操作store之前先添加锁，实际是打开了两个store。
     }
 
     @Override

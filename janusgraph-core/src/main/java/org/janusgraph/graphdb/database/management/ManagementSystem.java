@@ -172,7 +172,7 @@ public class ManagementSystem implements JanusGraphManagement {
         this.evictGraphFromCache = false;
         this.updatedTypeTriggers = new ArrayList<>();
         this.graphShutdownRequired = false;
-
+        //可以线程间共享操作了，不是线程绑定的事务对象。
         this.transaction = (StandardJanusGraphTx) graph.buildTransaction().disableBatchLoading().start();
         this.txStartTime = graph.getConfiguration().getTimestampProvider().getTime();
         this.isOpen = true;

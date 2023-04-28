@@ -18,8 +18,11 @@ import org.janusgraph.core.EdgeLabel;
 import org.janusgraph.core.PropertyKey;
 import org.janusgraph.core.RelationType;
 import org.janusgraph.core.VertexLabel;
+import org.janusgraph.graphdb.transaction.StandardJanusGraphTx;
 
 /**
+ *顶级父类接口，用来创建schema约束的。
+ * 负责管理schema约束的,可以PropertyKeyschema，VertexLabel约束，也可以创建边edgeLabel约束。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public interface SchemaInspector {
@@ -31,7 +34,7 @@ public interface SchemaInspector {
 
     /**
      * Checks whether a type with the specified name exists.
-     *
+     * 检查指定名称的类型是否存在
      * @param name name of the type
      * @return true, if a type with the given name exists, else false
      */
@@ -43,13 +46,16 @@ public interface SchemaInspector {
      *
      * @param name name of the type to return
      * @return The type with the given name, or null if such does not exist
-     * @see RelationType
+     * @see RelationType 关系类型 可能是点，边 或者 索引等
      */
     RelationType getRelationType(String name);
 
+
+    //属性  管理
+
     /**
      * Checks whether a property key of the given name has been defined in the JanusGraph schema.
-     *
+     *检查一个属性的key是否JanusGraph的其他属性重名。
      * @param name name of the property key
      * @return true, if the property key exists, else false
      */
@@ -93,6 +99,8 @@ public interface SchemaInspector {
      * @return
      */
     PropertyKey getPropertyKey(String name);
+
+    //  label 控制
 
     /**
      * Checks whether an edge label of the given name has been defined in the JanusGraph schema.
@@ -138,6 +146,7 @@ public interface SchemaInspector {
     VertexLabel getVertexLabel(String name);
 
     /**
+     * 用来获取或者 创建后 获取VertexLabel的schema。 实现方法在 {@link StandardJanusGraphTx}，DefaultSchemaMaker去创建。
      * Returns the vertex label with the given name. If a vertex label with this name does not exist, the label is
      * automatically created through the registered {@link org.janusgraph.core.schema.DefaultSchemaMaker}.
      * <p>

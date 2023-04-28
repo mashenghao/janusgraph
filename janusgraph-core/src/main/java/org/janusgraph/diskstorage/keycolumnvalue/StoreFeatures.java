@@ -34,6 +34,7 @@ public interface StoreFeatures {
     boolean hasScan();
 
     /**
+     * 全局扫描支持？
      * Whether this storage backend supports global key scans via
      * {@link KeyColumnValueStore#getKeys(SliceQuery, StoreTransaction)}.
      */
@@ -46,6 +47,7 @@ public interface StoreFeatures {
     boolean hasOrderedScan();
 
     /**
+     * 是否支持多个key的查询操作。
      * Whether this storage backend supports query operations on multiple keys
      * via
      * {@link KeyColumnValueStore#getSlice(java.util.List, SliceQuery, StoreTransaction)}

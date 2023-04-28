@@ -15,12 +15,20 @@
 
 package org.janusgraph.core;
 
+import org.janusgraph.diskstorage.keycolumnvalue.KeySliceQuery;
 import org.janusgraph.graphdb.query.JanusGraphPredicate;
 import org.apache.tinkerpop.gremlin.process.traversal.Order;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 
 /**
+ *  1. janusgrah 基于中心点构造查询条件，创建这个JanusGraphVertexQuery的实例的必须是有点id，
+ *  * 基于这个点id，设置查询边的类型，指向等， 或者设置查询的属性key。 这个查询条件是暴露给图语义层调用的，
+ *  * 最终的话，落到DB层要从{@link KeySliceQuery}这种，转换为rowKey和column Filter的查询条件。
+ *  *2. 针对于单点进行查询。
+ *  *
+ *
+ * 基于顶点，构造查询条件。
  * BaseVertexQuery constructs and executes a query over incident edges or properties from the perspective of a vertex.
  * <p>
  * A VertexQuery has some JanusGraph specific convenience methods for querying for incident edges or properties.
@@ -45,6 +53,7 @@ public interface BaseVertexQuery<Q extends BaseVertexQuery<Q>> {
     */
 
     /**
+     * 限制查询指定点的边
      * Restricts this query to only those edges that point to the given vertex.
      *
      * @param vertex
@@ -53,6 +62,8 @@ public interface BaseVertexQuery<Q extends BaseVertexQuery<Q>> {
     Q adjacent(Vertex vertex);
 
     /**
+     * 限制查询的类型，含边 与属性类型
+     *
      * Query for only those relations matching one of the given relation types.
      * By default, a query includes all relations in the result set.
      *
@@ -71,6 +82,7 @@ public interface BaseVertexQuery<Q extends BaseVertexQuery<Q>> {
     Q types(RelationType... type);
 
     /**
+     * 查询边的类型
      * Query for only those edges matching one of the given edge labels.
      * By default, an edge query includes all edges in the result set.
      *
@@ -80,6 +92,7 @@ public interface BaseVertexQuery<Q extends BaseVertexQuery<Q>> {
     Q labels(String... labels);
 
     /**
+     * 查询的属性集合。
      * Query for only those properties having one of the given property keys.
      * By default, a query includes all properties in the result set.
      *
@@ -89,6 +102,7 @@ public interface BaseVertexQuery<Q extends BaseVertexQuery<Q>> {
     Q keys(String... keys);
 
     /**
+     * 查询的关系方向
      * Query only for relations in the given direction.
      * By default, both directions are queried.
      *
@@ -98,10 +112,13 @@ public interface BaseVertexQuery<Q extends BaseVertexQuery<Q>> {
     Q direction(Direction d);
 
     /**
+     * 1. 类型是属性key的话，属性或者边的有这个属性值。
+     * 2. 边标签，的值。
      * Query only for edges or properties that have an incident property or unidirected edge matching the given value.
      * <p>
      * If type is a property key, then the query is restricted to edges or properties having an incident property matching
      * this key-value pair.
+     *
      * If type is an edge label, then it is expected that this label is unidirected ({@link EdgeLabel#isUnidirected()}
      * and the query is restricted to edges or properties having an incident unidirectional edge pointing to the value which is
      * expected to be a {@link org.janusgraph.core.JanusGraphVertex}.
@@ -138,6 +155,13 @@ public interface BaseVertexQuery<Q extends BaseVertexQuery<Q>> {
      */
     Q hasNot(String key, Object value);
 
+    /**
+     * 属性定有的值
+     * @param key
+     * @param predicate
+     * @param value
+     * @return
+     */
     Q has(String key, JanusGraphPredicate predicate, Object value);
 
     /**
@@ -164,6 +188,8 @@ public interface BaseVertexQuery<Q extends BaseVertexQuery<Q>> {
 
 
     /**
+     * 排序返回的结果，只用于点属性或者边，不能用于邻接点。 因为这里用排序，是为了排序下推，
+     * 如果hbase，只需要倒着scan数据就是倒叙了。
      * Orders the relation results of this query according
      * to their property for the given key in the given order (increasing/decreasing).
      * <p>

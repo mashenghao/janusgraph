@@ -22,17 +22,19 @@ import java.util.concurrent.Future;
 /**
  * Represents a log that allows content to be added to it in the form of messages and to
  * read messages and their content from the log via registered {@link MessageReader}s.
- *
+ * 表示一个 Log ，允许以 消息的形式向里面添加数据， 可以注册 消息读取器，读取内容。 自己内部去王kcvs 中后台存储系统实际操作。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public interface Log {
 
 
     /**
+     * 尝试天机内容到Log中，返回一个Future对这个操作。
      * Attempts to add the given content to the log and returns a {@link Future} for this action.
      * <p>
-     * If the log is configured for immediate sending, then any exception encountered during this process is thrown
-     * by this method. Otherwise, encountered exceptions are attached to the returned future.
+     *
+     * If the log is configured for immediate sending（即使发送）, then any exception encountered during this process is thrown
+     * by this method（方法执行抛出错误）. Otherwise, encountered exceptions are attached to the returned future（future 返回异常）.
 
      * @param content
      * @return

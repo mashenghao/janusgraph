@@ -111,7 +111,7 @@
             </plugin>
             <plugin>
                 <artifactId>maven-resources-plugin</artifactId>
-                <executions>
+<!--                <executions>
                     <execution>
                         <id>filter-${test.byteorderedpartitioner}</id>
                         <phase>process-test-resources</phase>
@@ -185,7 +185,7 @@
                             </resources>
                         </configuration>
                     </execution>
-                </executions>
+                </executions>-->
             </plugin>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>

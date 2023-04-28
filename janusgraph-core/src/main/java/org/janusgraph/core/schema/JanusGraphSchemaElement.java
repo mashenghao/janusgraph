@@ -17,12 +17,18 @@ package org.janusgraph.core.schema;
 import org.janusgraph.core.Namifiable;
 
 /**
+ *
+ * 标记是janusgraph图schema的约束的一部分。
  * Marks any element that is part of a JanusGraph Schema.
  * JanusGraph Schema elements can be uniquely identified by their name.
+ * 元素可以被他们的唯一名字获取到实例。
  * <p>
  * A JanusGraph Schema element is either a {@link JanusGraphSchemaType} or an index definition, i.e.
  * {@link JanusGraphIndex} or {@link RelationTypeIndex}.
  *
+ *一个是janusgraph schema的类型，包括子类，RelationType（PropertyKey/EdgeLabel）  / VertexLabel
+ * 一个是索引的约束类型。
+ * {@link }创建索引的类。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public interface JanusGraphSchemaElement extends Namifiable {

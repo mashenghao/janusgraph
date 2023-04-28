@@ -68,6 +68,7 @@ public class JanusGraphSchemaVertex extends CacheVertex implements SchemaSource 
 
     private TypeDefinitionMap definition = null;
 
+    //获取schema的属性集合，通用实现是通过去数据库查到这个点，然后解析这个点的属性。
     @Override
     public TypeDefinitionMap getDefinition() {
         TypeDefinitionMap def = definition;

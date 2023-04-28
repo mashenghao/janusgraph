@@ -79,6 +79,7 @@ public class ConsistentKeyIDAuthority extends AbstractIDAuthority implements Bac
     private static final int ROLLBACK_ATTEMPTS = 5;
 
     private final StoreManager manager;
+    //用来存储各个partttion下 各个类型的点id用的最大值。
     private final KeyColumnValueStore idStore;
     private final StandardBaseTransactionConfig.Builder storeTxConfigBuilder;
     /**
@@ -167,6 +168,14 @@ public class ConsistentKeyIDAuthority extends AbstractIDAuthority implements Bac
         return manager.beginTransaction(storeTxConfigBuilder.build());
     }
 
+    /**
+     * 去取该分区下该点类型的最大当前block使用的最大值。 parttionkey = (parttion + idNamespace(申请id的类型))。
+     * column取得范围是从 1 到 17，限制只取前5个。，为啥column是 1 到 17
+     *
+     * @param partitionKey
+     * @return
+     * @throws BackendException
+     */
     private long getCurrentID(final StaticBuffer partitionKey) throws BackendException {
         final List<Entry> blocks = BackendOperation.execute(
             (BackendOperation.Transactional<List<Entry>>) txh -> idStore.getSlice(new KeySliceQuery(partitionKey, LOWER_SLICE, UPPER_SLICE).setLimit(5), txh),this,times);
@@ -210,12 +219,16 @@ public class ConsistentKeyIDAuthority extends AbstractIDAuthority implements Bac
 
         final Timer methodTime = times.getTimer().start();
 
+        //返回这个点 或者边 或者schema点 申请block块时，预分配的id个数。 通过配置block-size=10000 配置， 边是block-size*8
         final long blockSize = getBlockSize(idNamespace);
+        //id分配的最大值。获取当前命名空间配置的最大id值idUpperBound；值为：2的55次幂大小
         final long idUpperBound = getIdUpperBound(idNamespace);
-
+        // uniqueIdBitWidth标识uniqueId占用的位数；uniqueId为了兼容“关闭分布式id唯一性保障”的开关情况，uniqueIdBitWidth默认值=4
+        // 值：64-1(默认0)-5（分区占用位数）-3（ID Padding占用位数）-4（uniqueIdBitWidth） = 51；标识block中的上限为2的51次幂大小
         final int maxAvailableBits = (VariableLong.unsignedBitLength(idUpperBound)-1)-uniqueIdBitWidth;
         Preconditions.checkArgument(maxAvailableBits>0,"Unique id bit width [%s] is too wide for id-namespace [%s] id bound [%s]"
                                                 ,uniqueIdBitWidth,idNamespace,idUpperBound);
+        // 标识block中的上限为2的51次幂大小，作为rowkey下的最大column。
         final long idBlockUpperBound = (1L <<maxAvailableBits);
 
         final List<Integer> exhaustedUniquePIDs = new ArrayList<>(randomUniqueIDLimit);
@@ -227,9 +240,13 @@ public class ConsistentKeyIDAuthority extends AbstractIDAuthority implements Bac
 
         while (methodTime.elapsed().compareTo(timeout) < 0) {
             final int uniquePID = getUniquePartitionID();
+            //由 分区号 + 申请id的schema类型 + pid 组成分区key(rowKey)
             final StaticBuffer partitionKey = getPartitionKey(partition,idNamespace,uniquePID);
             try {
+                // 从Hbase中获取当前partition对应的IDPool中被分配的最大值，用来作为当前申请新的block的开始值
                 long nextStart = getCurrentID(partitionKey);
+
+                // 确保还未被分配的id池中的id个数，大于等于blockSize
                 if (idBlockUpperBound - blockSize <= nextStart) {
                     log.info("ID overflow detected on partition({})-namespace({}) with uniqueid {}. Current id {}, block size {}, and upper bound {} for bit width {}.",
                             partition, idNamespace, uniquePID, nextStart, blockSize, idBlockUpperBound, uniqueIdBitWidth);
@@ -248,6 +265,7 @@ public class ConsistentKeyIDAuthority extends AbstractIDAuthority implements Bac
 
                 // calculate the start (inclusive) and end (exclusive) of the allocation we're about to attempt
                 assert idBlockUpperBound - blockSize > nextStart;
+                //申请的结束值。
                 long nextEnd = nextStart + blockSize;
                 StaticBuffer target = null;
 
@@ -255,8 +273,10 @@ public class ConsistentKeyIDAuthority extends AbstractIDAuthority implements Bac
                 boolean success = false;
                 try {
                     Timer writeTimer = times.getTimer().start();
+                    //
                     target = getBlockApplication(nextEnd, writeTimer.getStartTime());
                     final StaticBuffer finalTarget = target; // copy for the inner class
+                    //这里为parttionkey写入当前机器要占用的区间是[nextStart,nextEnd]. colunm的值是    -nextEnd ??? 未知用途 ？？？
                     BackendOperation.execute(txh -> {
                         idStore.mutate(partitionKey, Collections.singletonList(StaticArrayEntry.of(finalTarget)), KeyColumnValueStore.NO_DELETIONS, txh);
                         return true;
@@ -269,6 +289,8 @@ public class ConsistentKeyIDAuthority extends AbstractIDAuthority implements Bac
                     } else {
 
                         assert 0 != target.length();
+                        //根据nextEnd的值，再去查找和这个记录，去设定查找column的上下线，
+                        // 组装下述基于上述Rowkey的Column的查找范围：(-nextEnd + 0 : 0nextEnd + 最大值)
                         final StaticBuffer[] slice = getBlockSlice(nextEnd);
 
                         /* At this point we've written our claim on [nextStart, nextEnd),
@@ -278,6 +300,7 @@ public class ConsistentKeyIDAuthority extends AbstractIDAuthority implements Bac
 
                         sleepAndConvertInterrupts(idApplicationWaitMS.plus(waitGracePeriod));
 
+                        //获取指定区间的column
                         // Read all id allocation claims on this partition, for the counter value we're claiming
                         final List<Entry> blocks = BackendOperation.execute(
                             (BackendOperation.Transactional<List<Entry>>) txh -> idStore.getSlice(new KeySliceQuery(partitionKey, slice[0], slice[1]), txh),this,times);
@@ -286,9 +309,11 @@ public class ConsistentKeyIDAuthority extends AbstractIDAuthority implements Bac
                             throw new PermanentBackendException("It seems there is a race-condition in the block application. " +
                                     "If you have multiple JanusGraph instances running on one physical machine, ensure that they have unique machine idAuthorities");
 
+
                         /* If our claim is the lexicographically first one, then our claim
                          * is the most senior one and we own this id block
                          */
+                        // 如果获取的集合中，当前的图实例插入的数据是第一条，则表示获取block; 如果不是第一条，则获取Block失败
                         if (target.equals(blocks.get(0).getColumnAs(StaticBuffer.STATIC_FACTORY))) {
 
                             ConsistentKeyIDBlock idBlock = new ConsistentKeyIDBlock(nextStart,blockSize,uniqueIdBitWidth,uniquePID);

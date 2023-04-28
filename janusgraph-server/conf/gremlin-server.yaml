@@ -1,4 +1,4 @@
-host: 192.168.13.5
+host: 192.168.13.28
 port: 8190
 scriptEvaluationTimeout: 30000000
 channelizer: org.janusgraph.channelizers.JanusGraphWsAndHttpChannelizer

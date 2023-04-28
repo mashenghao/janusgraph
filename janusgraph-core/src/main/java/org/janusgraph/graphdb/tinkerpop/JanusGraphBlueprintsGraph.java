@@ -53,7 +53,10 @@ import com.google.common.base.Preconditions;
 /**
  * Blueprints specific implementation for {@link JanusGraph}.
  * Handles thread-bound transactions.
- *
+ * 处理线程绑定的事务用的。 将事务绑定到线程上。这个类就是 将所有涉及事务的操作，绑定到线程上。
+ * getAutoStartTx()方法，是重点。 他返回的是一个JanusGraphTranction对象，同时实现了Graph的接口，负责分担StandJanusGRaph的事务查询，
+ * 以后的查询，走vertexs() 或者edges()等查询实际是走的这个实例， 通过这个事务实例做操作。 事务提交最终也是Standgraph从threadLocal取出来这个
+ * 实例后，走的这个事务实例的方法。
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public abstract class JanusGraphBlueprintsGraph implements JanusGraph {
@@ -65,16 +68,21 @@ public abstract class JanusGraphBlueprintsGraph implements JanusGraph {
 
 
     // ########## TRANSACTION HANDLING ###########################
-
+    //创建了一个tinkerpopTxContainer的事务处理对象，
     final GraphTransaction tinkerpopTxContainer = new GraphTransaction();
 
-    private ThreadLocal<JanusGraphBlueprintsTransaction> txs = ThreadLocal.withInitial(() -> null);
+    private ThreadLocal<JanusGraphBlueprintsTransaction> txs = ThreadLocal.withInitial(() -> null); //这是每个线程中的事务
 
+    //用来创建一个事务，模版方法。
     public abstract JanusGraphTransaction newThreadBoundTransaction();
 
+    //获取当前事务对象，则个方法的调用都是在 startNewTx()方法之后，如果为null，只能说明图库被close。
     private JanusGraphBlueprintsTransaction getAutoStartTx() {
         if (txs == null) throw new IllegalStateException("Graph has been closed");
-        tinkerpopTxContainer.readWrite();
+        //这个方法会调用doOpen方法，
+        // org.apache.tinkerpop.gremlin.structure.util.AbstractThreadLocalTransaction.readWriteConsumerInternal 这个ThreadLocal
+        // ，会自动调用doOpen方法。 然后将线程事务实例放到threadLocal中，如果已经有了，则不做操作。
+        tinkerpopTxContainer.readWrite(); // 重要。
 
         JanusGraphBlueprintsTransaction tx = txs.get();
         Preconditions.checkNotNull(tx,"Invalid read-write behavior configured: " +
@@ -82,6 +90,7 @@ public abstract class JanusGraphBlueprintsGraph implements JanusGraph {
         return tx;
     }
 
+    //创建一个新的事务对象，并放入到ThreadLocal中。 创建新的事务。
     private void startNewTx() {
         JanusGraphBlueprintsTransaction tx = txs.get();
         if (tx!=null && tx.isOpen()) throw Transaction.Exceptions.transactionAlreadyOpen();
@@ -100,6 +109,7 @@ public abstract class JanusGraphBlueprintsGraph implements JanusGraph {
         txs = null;
     }
 
+    //tx()无论调用多少次，都是返回的一个事务操作方法集合。
     @Override
     public Transaction tx() {
         return tinkerpopTxContainer;
@@ -139,10 +149,11 @@ public abstract class JanusGraphBlueprintsGraph implements JanusGraph {
     public JanusGraphVertex addVertex(Object... keyValues) {
         return getAutoStartTx().addVertex(keyValues);
     }
-
-    @Override
+    
+    //根据点id 获取点，JanusGraphBlueprintsGraph为所有的操作,都添加了事务。getAutoStartTx()返回了一个janusGraphTraction对象，这个对象是Graph的子类。
+    @Override//
     public Iterator<Vertex> vertices(Object... vertexIds) {
-        return getAutoStartTx().vertices(vertexIds);
+        return getAutoStartTx().vertices(vertexIds);//JanusGraphBlueprintsTransaction 调用vertices()方法。
     }
 
     @Override
@@ -279,7 +290,12 @@ public abstract class JanusGraphBlueprintsGraph implements JanusGraph {
     }
 
 
-
+    /**
+     * JanusGraph的事务实现类，是tinkerpop提供的模版API，实现doXXX()方法。
+     * 在遍历时，Traversal会自动进行事务的操作，开始traversal之前打开事务，出现异常进行回滚操作。
+     *
+     * 这个类继承的是AbstractThreadLocalTransaction，是将所有的
+     */
     class GraphTransaction extends AbstractThreadLocalTransaction {
 
         public GraphTransaction() {
@@ -288,6 +304,7 @@ public abstract class JanusGraphBlueprintsGraph implements JanusGraph {
 
         @Override
         public void doOpen() {
+            //这个doOpen方法也会被readWriter方法调用，有个AbstractThreadLocalTransaction的readWriteConsumerInternal的AUTO就是打开事务。
             startNewTx();
         }
 

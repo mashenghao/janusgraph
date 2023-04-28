@@ -18,7 +18,7 @@ package org.janusgraph.diskstorage.locking;
  * @author Matthias Broecheler (me@matthiasb.com)
  */
 public interface LockerProvider {
-
+    //获取到一个锁对象。
     Locker getLocker(String lockerName);
 
 }
